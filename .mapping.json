@@ -1,4 +1,5 @@
 {
+  ".":"infra/temporal/temporal-over-ydb/github_toplevel",
   ".gitignore":"infra/temporal/temporal-over-ydb/github_toplevel/.gitignore",
   "AUTHORS.md":"infra/temporal/temporal-over-ydb/github_toplevel/AUTHORS.md",
   "CONTRIBUTING.md":"infra/temporal/temporal-over-ydb/github_toplevel/CONTRIBUTING.md",
@@ -36,7 +37,7 @@
   "tests/docker-compose.yml":"infra/temporal/temporal-over-ydb/tests/docker-compose.yml",
   "tests/functests.go.mod":"infra/temporal/temporal-over-ydb/tests/functests.go.mod",
   "tests/functests.patch":"infra/temporal/temporal-over-ydb/tests/functests.patch",
-  "tests/persistencetests/go.mod":"tests/perstests.go.mod",
+  "tests/persistencetests/go.mod":"infra/temporal/temporal-over-ydb/tests/perstests.go.mod",
   "tests/persistencetests/util.go":"infra/temporal/temporal-over-ydb/tests/persistencetests/util.go",
   "tests/persistencetests/ydb_test.go":"infra/temporal/temporal-over-ydb/tests/persistencetests/ydb_test.go",
   "tests/perstests.go.mod":"infra/temporal/temporal-over-ydb/tests/perstests.go.mod",
