@@ -575,6 +575,11 @@ AND event_name IS NULL;
 		table.ValueParam("$current_run_id", types.UTF8Value(request.RunID)),
 	))
 	if err != nil {
+		if xydb.IsPreconditionFailedAndContains(err, "CURRENT_RUN_ID_MISMATCH") {
+			err = xydb.WrapErrorAsRootCause(&p.ConditionFailedError{
+				Msg: fmt.Sprintf("DeleteCurrentWorkflowExecution: current_run_id mismatch (%s)", request.RunID),
+			})
+		}
 		return xydb.ConvertToTemporalError("DeleteWorkflowCurrentRow", err)
 	}
 	return nil
