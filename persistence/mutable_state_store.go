@@ -541,20 +541,6 @@ DECLARE $workflow_id AS Utf8;
 DECLARE $run_id AS Utf8;
 DECLARE $current_run_id AS Utf8;
 
-SELECT Ensure(current_run_id, current_run_id == $current_run_id, "CURRENT_RUN_ID_MISMATCH")
-FROM executions
-WHERE shard_id = $shard_id
-AND namespace_id = $namespace_id
-AND workflow_id = $workflow_id
-AND run_id = $run_id
-AND task_id IS NULL
-AND task_category_id IS NULL
-AND task_visibility_ts IS NULL
-AND event_type IS NULL
-AND event_id IS NULL
-AND event_name IS NULL
-LIMIT 1;
-
 DELETE FROM executions
 WHERE shard_id = $shard_id
 AND namespace_id = $namespace_id
@@ -565,7 +551,8 @@ AND task_category_id IS NULL
 AND task_visibility_ts IS NULL
 AND event_type IS NULL
 AND event_id IS NULL
-AND event_name IS NULL;
+AND event_name IS NULL
+AND current_run_id = $current_run_id;
 	`)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$shard_id", types.Uint32Value(ToShardIDColumnValue(request.ShardID))),
@@ -574,15 +561,7 @@ AND event_name IS NULL;
 		table.ValueParam("$run_id", currentExecutionRunID),
 		table.ValueParam("$current_run_id", types.UTF8Value(request.RunID)),
 	))
-	if err != nil {
-		if xydb.IsPreconditionFailedAndContains(err, "CURRENT_RUN_ID_MISMATCH") {
-			err = xydb.WrapErrorAsRootCause(&p.ConditionFailedError{
-				Msg: fmt.Sprintf("DeleteCurrentWorkflowExecution: current_run_id mismatch (%s)", request.RunID),
-			})
-		}
-		return xydb.ConvertToTemporalError("DeleteWorkflowCurrentRow", err)
-	}
-	return nil
+	return xydb.ConvertToTemporalError("DeleteCurrentWorkflowExecution", err)
 }
 
 func (d *MutableStateStore) GetCurrentExecution(
