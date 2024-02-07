@@ -3,10 +3,13 @@ module github.com/yandex/temporal-over-ydb
 go 1.19
 
 require (
+	github.com/jmoiron/sqlx v1.3.4
 	github.com/pborman/uuid v1.2.1
 	github.com/prometheus/client_golang v1.17.0
+	github.com/rqlite/gorqlite v0.0.0-20240128151212-1b4740ffba22
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231012155159-f85a672542fd
+	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.17.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.53.1
 	go.temporal.io/api v1.24.0
@@ -43,6 +46,7 @@ require (
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gogo/status v1.1.1 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/mock v1.7.0-rc.1 // indirect
@@ -59,7 +63,6 @@ require (
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/jmoiron/sqlx v1.3.4 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
@@ -89,6 +92,9 @@ require (
 	github.com/uber-go/tally/v4 v4.1.7 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2 // indirect
+	github.com/yandex-cloud/go-genproto v0.0.0-20211115083454-9ca41db5ed9e // indirect
+	github.com/ydb-platform/ydb-go-yc v0.10.2 // indirect
+	github.com/ydb-platform/ydb-go-yc-metadata v0.5.2 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect

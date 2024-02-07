@@ -7,6 +7,7 @@ import (
 
 	xydblog "github.com/yandex/temporal-over-ydb/xydb/log"
 	xydbmetrics "github.com/yandex/temporal-over-ydb/xydb/metrics"
+	ydbenv "github.com/ydb-platform/ydb-go-sdk-auth-environ"
 	ydbmetrics "github.com/ydb-platform/ydb-go-sdk-metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/balancers"
@@ -20,8 +21,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 )
-
-const debug = false
 
 type Client struct {
 	DB         *ydb.Driver
@@ -91,7 +90,7 @@ func NewClient(ctx context.Context, config Config, logger tlog.Logger, mh metric
 	if config.Token != "" {
 		opts = append(opts, ydb.WithAccessTokenCredentials(config.Token))
 	} else {
-		logger.Info("Connecting to YDB without authorization")
+		opts = append(opts, ydbenv.WithEnvironCredentials(ctx))
 	}
 	opts = append(opts, setupLogger(logger)...)
 	opts = append(opts, setupMetrics(mh)...)
