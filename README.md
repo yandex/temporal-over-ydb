@@ -15,11 +15,11 @@ Clone and patch Temporal source code:
 ```
 git clone https://github.com/temporalio/temporal.git
 cd ./temporal
-git checkout v1.22.0
+git checkout v1.22.3
 
 # This patch allows setting custom advanced visibility persistence,
 # see https://github.com/temporalio/temporal/pull/4871
-curl https://github.com/temporalio/temporal/pull/4871.diff -Lso- | git apply
+curl https://github.com/temporalio/temporal/compare/634a5a1223a8b2bc00b9320d17ed1f1b67182fb1..3f0ad69ad521ffb07e1bbdea1aa4da0adeb3be7e.diff -Lso- | git apply
 
 # Since the suites in the tests package are not exportable and not configurable with
 # custom persistence, for now we just patch them to use YDB:
