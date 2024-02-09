@@ -22,7 +22,7 @@ If you agree with these principles, please read and adopt our CLA. By providing 
 If you have already adopted terms and conditions of the CLA, you are able to provide your contributions. When you submit your pull request, please add the following information into it:
 
 ```
-I hereby agree to the terms of the CLA available at: [link].
+I hereby agree to the terms of the CLA available at: [link]
 ```
 
 Replace the bracketed text as follows:
