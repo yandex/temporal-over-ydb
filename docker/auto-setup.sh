@@ -145,8 +145,17 @@ wait_for_postgres() {
     echo 'PostgreSQL started.'
 }
 
+get_ydb_endpoint_protocol() {
+    if [[ ${YDB_USE_SSL} == true ]]; then
+       echo "grpcs";
+    else
+       echo "grpc";
+    fi
+}
+
 wait_for_ydb() {
-    until /ydb -e grpc://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scheme ls; do
+    YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
+    until /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scheme ls; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -326,11 +335,7 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      if [[ ${YDB_USE_SSL} == true ]]; then
-        YDB_PROTOCOL="grpcs";
-      else
-        YDB_PROTOCOL="grpc";
-      fi
+      YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
 
       /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scripting yql --script "
         PRAGMA TablePathPrefix = \"/${YDB_DBNAME}/${YDB_TABLE_PATH}\";
