@@ -1,0 +1,1 @@
+./rqlitetool --url 'http://rqlite-test-1.klg.yp-c.yandex.net:4000,http://rqlite-test-1.vla.yp-c.yandex.net:4001,http://rqlite-test-1.sas.yp-c.yandex.net:4002,http://rqlite-test-1.vla.yp-c.yandex.net:4003' setup-schema --schema-file ../../schema/temporal/schema.sql 

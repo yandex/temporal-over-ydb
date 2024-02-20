@@ -20,6 +20,7 @@ import (
 	"go.temporal.io/server/common/persistence/visibility/store"
 	"go.temporal.io/server/common/persistence/visibility/store/standard"
 	"go.temporal.io/server/common/resolver"
+	"go.temporal.io/server/common/searchattribute"
 	"golang.org/x/xerrors"
 )
 
@@ -34,6 +35,8 @@ type visibilityStore struct {
 func NewVisibilityStore(
 	cfg config.CustomDatastoreConfig,
 	r resolver.ServiceResolver,
+	searchAttributesProvider searchattribute.Provider,
+	searchAttributesMapperProvider searchattribute.MapperProvider,
 	logger log.Logger,
 ) (store.VisibilityStore, error) {
 	client, err := ydbpersistence.NewYDBClientFromConfig(cfg, r, logger)
@@ -42,7 +45,7 @@ func NewVisibilityStore(
 	}
 	return standard.NewVisibilityStore(&visibilityStore{
 		client: client,
-	}), nil
+	}, searchAttributesProvider, searchAttributesMapperProvider), nil
 }
 
 func (v *visibilityStore) GetName() string {
