@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v2"
-	ydbpersistence "github.com/yandex/temporal-over-ydb/persistence"
+	"github.com/yandex/temporal-over-ydb/persistence"
 	"go.temporal.io/server/common/authorization"
 	"go.temporal.io/server/common/build"
 	"go.temporal.io/server/common/config"
@@ -92,7 +92,7 @@ func buildCLI() *cli.App {
 				}
 
 				// XXX
-				ydbpersistence.NumHistoryShards = int(cfg.Persistence.NumHistoryShards)
+				persistence.NumHistoryShards = int(cfg.Persistence.NumHistoryShards)
 
 				logger := log.NewZapLogger(log.BuildZapLogger(cfg.Log))
 				logger.Info("Build info.",
@@ -147,7 +147,7 @@ func buildCLI() *cli.App {
 					temporal.WithClaimMapper(func(cfg *config.Config) authorization.ClaimMapper {
 						return claimMapper
 					}),
-					temporal.WithCustomDataStoreFactory(ydbpersistence.NewYDBAbstractDataStoreFactory()),
+					temporal.WithCustomDataStoreFactory(persistence.NewYDBAbstractDataStoreFactory()),
 				)
 				if err != nil {
 					return cli.Exit(fmt.Sprintf("Unable to create server. Error: %v.", err), 1)
