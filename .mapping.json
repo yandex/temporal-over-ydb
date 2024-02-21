@@ -7,8 +7,6 @@
   "Dockerfile":"infra/temporal/temporal-over-ydb/Dockerfile",
   "LICENSE":"infra/temporal/temporal-over-ydb/github_toplevel/LICENSE",
   "README.md":"infra/temporal/temporal-over-ydb/github_toplevel/README.md",
-  "cmd/rqlitetool/README.md":"infra/temporal/temporal-over-ydb/cmd/rqlitetool/README.md",
-  "cmd/rqlitetool/main.go":"infra/temporal/temporal-over-ydb/cmd/rqlitetool/main.go",
   "docker/auto-setup.sh":"infra/temporal/temporal-over-ydb/docker/auto-setup.sh",
   "docker/config/config_template.yaml":"infra/temporal/temporal-over-ydb/docker/config/config_template.yaml",
   "github_toplevel/.gitignore":"infra/temporal/temporal-over-ydb/github_toplevel/.gitignore",
