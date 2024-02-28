@@ -3,10 +3,8 @@ module github.com/yandex/temporal-over-ydb
 go 1.19
 
 require (
-	github.com/jmoiron/sqlx v1.3.4
 	github.com/pborman/uuid v1.2.1
 	github.com/prometheus/client_golang v1.17.0
-	github.com/rqlite/gorqlite v0.0.0-20240128151212-1b4740ffba22
 	github.com/urfave/cli/v2 v2.25.7
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231012155159-f85a672542fd
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
@@ -62,14 +60,12 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/iancoleman/strcase v0.2.0 // indirect
-	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/pgx/v5 v5.5.2 // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/jmoiron/sqlx v1.3.4 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
+	github.com/lib/pq v1.10.9 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
