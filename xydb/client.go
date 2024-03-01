@@ -95,7 +95,13 @@ func NewClient(ctx context.Context, config Config, logger tlog.Logger, mh metric
 	opts = append(opts, setupLogger(logger)...)
 	opts = append(opts, setupMetrics(mh)...)
 	opts = append(opts, ydb.WithSessionPoolIdleThreshold(time.Second*10))
-	opts = append(opts, ydb.WithBalancer(balancers.RandomChoice()))
+
+	balancerConfig := balancers.RandomChoice()
+	if config.PreferLocalDC {
+		balancerConfig = balancers.PreferLocalDC(balancerConfig)
+	}
+	opts = append(opts, ydb.WithBalancer(balancerConfig))
+
 	opts = append(opts, ydb.WithDialTimeout(10*time.Second))
 	sessionPoolSizeLimit := config.SessionPoolSizeLimit
 	if sessionPoolSizeLimit > 0 {

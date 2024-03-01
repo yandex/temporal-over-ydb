@@ -7,6 +7,7 @@ type Config struct {
 	Token                string `yaml:"token"`
 	UseSSL               bool   `yaml:"use_ssl"`
 	SessionPoolSizeLimit int    `yaml:"pool_size_limit"`
+	PreferLocalDC        bool   `yaml:"prefer_local_dc"`
 }
 
 func (c *Config) Validate() (bool, error) {
