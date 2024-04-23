@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	defaultTimerBuckets = prometheus.ExponentialBuckets(time.Millisecond.Seconds(), 1.25, 100)
+	defaultTimerBuckets = prometheus.ExponentialBuckets(time.Millisecond.Seconds(), 1.25, 20)
 )
 
 type Config struct {
