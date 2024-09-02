@@ -326,10 +326,10 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -d "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
+      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
         update-schema --path "${TEMPORAL_HOME}/schema/ydb/temporal/schema.yql"
 
-      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -d "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
+      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
         update-schema --path "${TEMPORAL_HOME}/schema/ydb/visibility/schema.yql"
     fi
 }
