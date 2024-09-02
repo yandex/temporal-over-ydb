@@ -14,7 +14,7 @@ RUN go mod download
 COPY . ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-server ./server/main.go
-
+RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-ydb-tool ./tools/ydb/main.go
 
 ##### Temporal server #####
 FROM ${BASE_SERVER_IMAGE} as temporal-server-ydb
@@ -36,10 +36,9 @@ WORKDIR /etc/temporal
 # binaries
 # temporal-ydb binary
 COPY --from=builder /temporal-server /usr/local/bin
-# ydb-cli binary
-USER root
-RUN apk add --no-cache gcompat
-RUN curl -sSL "https://storage.yandexcloud.net/yandexcloud-ydb/release/2.7.0/linux/amd64/ydb" -o /ydb && chmod +x /ydb
+# temporal-ydb-tool binary
+COPY --from=builder /temporal-ydb-tool /usr/local/bin
+
 USER temporal
 
 # configs
