@@ -145,17 +145,8 @@ wait_for_postgres() {
     echo 'PostgreSQL started.'
 }
 
-get_ydb_endpoint_protocol() {
-    if [[ ${YDB_USE_SSL} == true ]]; then
-       echo "grpcs";
-    else
-       echo "grpc";
-    fi
-}
-
 wait_for_ydb() {
-    YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
-    until /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scheme ls; do
+    until nc -z "${YDB_SEEDS%%,*}" "${YDB_PORT}"; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -335,17 +326,11 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
+      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -d "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
+        update-schema --path "${TEMPORAL_HOME}/schema/ydb/temporal/schema.yql"
 
-      /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scripting yql --script "
-        PRAGMA TablePathPrefix = \"/${YDB_DBNAME}/${YDB_TABLE_PATH}\";
-        $(cat ${TEMPORAL_HOME}/schema/ydb/temporal/schema.yql)
-      "
-
-      /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scripting yql --script "
-        PRAGMA TablePathPrefix = \"/${YDB_DBNAME}/${YDB_TABLE_PATH}\";
-        $(cat ${TEMPORAL_HOME}/schema/ydb/visibility/schema.yql)
-      "
+      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -d "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
+        update-schema --path "${TEMPORAL_HOME}/schema/ydb/visibility/schema.yql"
     fi
 }
 
