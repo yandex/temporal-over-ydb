@@ -146,7 +146,7 @@ wait_for_postgres() {
 }
 
 wait_for_ydb() {
-    until nc -z "${YDB_SEEDS%%,*}" "${YDB_PORT}"; do
+    until temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" ping ; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done

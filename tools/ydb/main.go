@@ -60,6 +60,27 @@ func buildCLI() *cli.App {
 
 	app.Commands = []*cli.Command{
 		{
+			Name:      "ping",
+			Usage:     "Perform connection check to ydb cluster",
+			ArgsUsage: " ",
+			Action: func(c *cli.Context) error {
+				logger := log.NewZapLogger(log.BuildZapLogger(log.Config{}))
+				cfg := xydb.Config{
+					Endpoint: c.String("endpoint"),
+					Database: c.String("database"),
+					Folder:   c.String("folder"),
+					Token:    c.String("token"),
+					UseSSL:   c.Bool("use-ssl"),
+				}
+				client, err := xydb.NewClient(c.Context, cfg, logger, nil)
+				if err != nil {
+					return cli.Exit(fmt.Sprintf("Unable to setup ydb client. Error: %v", err), 1)
+				}
+				_ = client.Close(c.Context)
+				return cli.Exit("Ok.", 0)
+			},
+		},
+		{
 			Name:      "update-schema",
 			Usage:     "Run schema DDL statements",
 			ArgsUsage: " ",
