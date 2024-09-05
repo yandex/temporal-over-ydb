@@ -8,10 +8,9 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/urfave/cli/v2 v2.25.7
-	github.com/ydb-platform/ydb-go-genproto v0.0.0-20231012155159-f85a672542fd
+	github.com/ydb-platform/ydb-go-genproto v0.0.0-20240528144234-5d5a685e41f7
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
-	github.com/ydb-platform/ydb-go-sdk-metrics v0.17.0
-	github.com/ydb-platform/ydb-go-sdk/v3 v3.53.1
+	github.com/ydb-platform/ydb-go-sdk/v3 v3.77.0
 	go.temporal.io/api v1.29.2
 	go.temporal.io/server v1.23.0
 	go.uber.org/atomic v1.11.0
@@ -118,7 +117,7 @@ require (
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
