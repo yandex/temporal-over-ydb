@@ -1,4 +1,4 @@
-ARG BUILDER_IMAGE=golang:1.21
+ARG BUILDER_IMAGE=golang:1.21-alpine3.19
 ARG BASE_SERVER_IMAGE=temporalio/server:1.23.0
 ARG BASE_AUTO_SETUP_IMAGE=temporalio/auto-setup:1.23.0
 
@@ -14,7 +14,7 @@ RUN go mod download
 COPY . ./
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-server ./server/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-ydb-tool ./tools/ydb/main.go
+RUN go install github.com/pressly/goose/v3/cmd/goose@v3.22.0
 
 ##### Temporal server #####
 FROM ${BASE_SERVER_IMAGE} as temporal-server-ydb
@@ -36,8 +36,8 @@ WORKDIR /etc/temporal
 # binaries
 # temporal-ydb binary
 COPY --from=builder /temporal-server /usr/local/bin
-# temporal-ydb-tool binary
-COPY --from=builder /temporal-ydb-tool /usr/local/bin
+# goose binary
+COPY --from=builder /go/bin/goose /usr/local/bin
 
 USER temporal
 
