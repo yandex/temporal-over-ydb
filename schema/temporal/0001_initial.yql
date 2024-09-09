@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE tasks_and_task_queues
 (
     namespace_id        Utf8  NOT NULL,
@@ -202,3 +203,19 @@ CREATE TABLE build_id_to_task_queue
     task_queue_name Utf8,
     PRIMARY KEY (namespace_id, build_id, task_queue_name)
 );
+
+
+-- +goose Down
+DROP TABLE tasks_and_task_queues;
+DROP TABLE executions;
+DROP TABLE history_node;
+DROP TABLE history_tree;
+DROP TABLE replication_tasks;
+DROP TABLE cluster_metadata_info;
+DROP TABLE queue;
+DROP TABLE queue_metadata;
+DROP TABLE namespaces_by_id;
+DROP TABLE namespaces;
+DROP TABLE cluster_membership;
+DROP TABLE task_queue_user_data;
+DROP TABLE build_id_to_task_queue;
