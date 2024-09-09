@@ -159,7 +159,7 @@ get_ydb_endpoint_protocol() {
  }
 
 wait_for_ydb() {
-    until goose ydb "$(get_ydb_goose_dsn)" version -t goose_db_version_temporal; do
+    until goose ydb "$(get_ydb_goose_dsn)" version -table goose_db_version_temporal; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -339,8 +339,8 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      goose ydb "$(get_ydb_goose_dsn)" up -t goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
-      goose ydb "$(get_ydb_goose_dsn)" up -t goose_db_version_visibility -dir "${TEMPORAL_HOME}/schema/ydb/visibility"
+      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
+      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_visibility -dir "${TEMPORAL_HOME}/schema/ydb/visibility"
     fi
 }
 

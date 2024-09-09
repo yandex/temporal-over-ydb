@@ -45,7 +45,7 @@ USER temporal
 COPY ./docker/config/config_template.yaml /etc/temporal/config/config_template.yaml
 
 # schema
-COPY ./schema /etc/temporal/schema/ydb
+COPY --chown=temporal:temporal ./schema /etc/temporal/schema/ydb
 
 ## scripts
 COPY ./docker/auto-setup.sh /etc/temporal/auto-setup.sh
