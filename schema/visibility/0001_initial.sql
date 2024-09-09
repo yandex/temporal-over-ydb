@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE executions_visibility
 (
     namespace_id Utf8,
@@ -19,3 +20,6 @@ WITH ( AUTO_PARTITIONING_BY_SIZE = ENABLED,
     AUTO_PARTITIONING_BY_LOAD = ENABLED);
 
 -- TODO indices
+
+-- +goose Down
+DROP TABLE executions_visibility;

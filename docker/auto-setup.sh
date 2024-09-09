@@ -146,16 +146,20 @@ wait_for_postgres() {
 }
 
 get_ydb_endpoint_protocol() {
-    if [[ ${YDB_USE_SSL} == true ]]; then
-       echo "grpcs";
-    else
-       echo "grpc";
-    fi
-}
+     if [[ ${YDB_USE_SSL} == true ]]; then
+        echo "grpcs";
+     else
+        echo "grpc";
+     fi
+ }
+
+ get_ydb_goose_dsn() {
+    protocol="$(get_ydb_endpoint_protocol)"
+    echo "${protocol}://${YDB_SEEDS}:${YDB_PORT}/${YDB_DBNAME}?go_query_mode=scripting&go_fake_tx=scripting&go_query_bind=table_path_prefix(${YDB_DBNAME}/${YDB_TABLE_PATH}),declare,numeric"
+ }
 
 wait_for_ydb() {
-    YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
-    until /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scheme ls; do
+    until goose ydb "$(get_ydb_goose_dsn)" version -table goose_db_version_temporal; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -335,17 +339,8 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      YDB_PROTOCOL=$(get_ydb_endpoint_protocol)
-
-      /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scripting yql --script "
-        PRAGMA TablePathPrefix = \"/${YDB_DBNAME}/${YDB_TABLE_PATH}\";
-        $(cat ${TEMPORAL_HOME}/schema/ydb/temporal/schema.yql)
-      "
-
-      /ydb -e ${YDB_PROTOCOL}://${YDB_SEEDS}:${YDB_PORT} -d /${YDB_DBNAME} scripting yql --script "
-        PRAGMA TablePathPrefix = \"/${YDB_DBNAME}/${YDB_TABLE_PATH}\";
-        $(cat ${TEMPORAL_HOME}/schema/ydb/visibility/schema.yql)
-      "
+      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
+      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_visibility -dir "${TEMPORAL_HOME}/schema/ydb/visibility"
     fi
 }
 
