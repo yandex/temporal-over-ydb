@@ -145,8 +145,21 @@ wait_for_postgres() {
     echo 'PostgreSQL started.'
 }
 
+get_ydb_endpoint_protocol() {
+     if [[ ${YDB_USE_SSL} == true ]]; then
+        echo "grpcs";
+     else
+        echo "grpc";
+     fi
+ }
+
+ get_ydb_goose_dsn() {
+    protocol="$(get_ydb_endpoint_protocol)"
+    echo "${protocol}://${YDB_SEEDS}:${YDB_PORT}/${YDB_DBNAME}?go_query_mode=scripting&go_fake_tx=scripting&go_query_bind=declare,numeric"
+ }
+
 wait_for_ydb() {
-    until temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" ping ; do
+    until goose ydb "$(get_ydb_goose_dsn)" version -t goose_db_version_temporal; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -326,11 +339,8 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
-        update-schema --path "${TEMPORAL_HOME}/schema/ydb/temporal/schema.yql"
-
-      temporal-ydb-tool -ep "${YDB_SEEDS}:${YDB_PORT}" -db "${YDB_DBNAME}" -f "${YDB_TABLE_PATH}" \
-        update-schema --path "${TEMPORAL_HOME}/schema/ydb/visibility/schema.yql"
+      goose ydb "$(get_ydb_goose_dsn)" up -t goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
+      goose ydb "$(get_ydb_goose_dsn)" up -t goose_db_version_visibility -dir "${TEMPORAL_HOME}/schema/ydb/visibility"
     fi
 }
 
