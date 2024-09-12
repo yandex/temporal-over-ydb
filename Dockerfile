@@ -49,3 +49,4 @@ COPY --chown=temporal:temporal ./schema /etc/temporal/schema/ydb
 
 ## scripts
 COPY ./docker/auto-setup.sh /etc/temporal/auto-setup.sh
+COPY ./docker/entrypoint.sh /etc/temporal/entrypoint.sh
