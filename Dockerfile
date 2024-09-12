@@ -26,6 +26,7 @@ COPY --from=builder /temporal-server /usr/local/bin
 
 # configs
 COPY ./docker/config/config_template.yaml /etc/temporal/config/config_template.yaml
+COPY ./docker/entrypoint.sh /etc/temporal/entrypoint.sh
 
 
 ### Server auto-setup image ###
