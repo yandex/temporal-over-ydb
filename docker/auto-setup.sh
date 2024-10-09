@@ -157,11 +157,11 @@ get_ydb_endpoint_protocol() {
  get_ydb_goose_dsn() {
     protocol="$(get_ydb_endpoint_protocol)"
     parameters="go_query_mode=scripting&go_fake_tx=scripting&go_query_bind=table_path_prefix(${YDB_DBNAME}/${YDB_TABLE_PATH}),declare,numeric"
-    if [ -n "$YDB_TOKEN" ]; then
-      parameters="token=$YDB_TOKEN&$parameters"
+    if [ -n "${YDB_TOKEN}" ]; then
+      parameters="token=${YDB_TOKEN}&${parameters}"
     fi
 
-    echo "${protocol}://${YDB_SEEDS}:${YDB_PORT}/${YDB_DBNAME}?$parameters"
+    echo "${protocol}://${YDB_SEEDS}:${YDB_PORT}/${YDB_DBNAME}?${parameters}"
  }
 
 wait_for_ydb() {
