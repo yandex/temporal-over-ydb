@@ -110,7 +110,7 @@ func NewClient(ctx context.Context, config Config, logger tlog.Logger, mh metric
 
 	db, err := ydb.Open(
 		ctx,
-		sugar.DSN(config.Endpoint, config.Database, config.UseSSL),
+		sugar.DSN(config.Endpoint, config.Database, sugar.WithSecure(config.UseSSL)),
 		opts...,
 	)
 	if err != nil {
