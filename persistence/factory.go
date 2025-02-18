@@ -179,6 +179,10 @@ func (f *Factory) NewQueueV2() (p.QueueV2, error) {
 	return nil, nil
 }
 
+func (f *Factory) NewNexusIncomingServiceStore() (p.NexusIncomingServiceStore, error) {
+	return nil, nil
+}
+
 // Close closes the factory
 func (f *Factory) Close() {
 	f.Lock()

@@ -11,10 +11,10 @@ import (
 
 	"github.com/yandex/temporal-over-ydb/xydb"
 	"github.com/ydb-platform/ydb-go-sdk/v3/scheme"
-	"go.temporal.io/server/common"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
+	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/tests/testutils"
 )
 
@@ -186,7 +186,7 @@ func (s *TestCluster) Config() config.Persistence {
 				FaultInjection: s.faultInjection,
 			},
 		},
-		TransactionSizeLimit: dynamicconfig.GetIntPropertyFn(common.DefaultTransactionSizeLimit),
+		TransactionSizeLimit: dynamicconfig.GetIntPropertyFn(primitives.DefaultTransactionSizeLimit),
 	}
 }
 

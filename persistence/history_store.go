@@ -433,15 +433,20 @@ LIMIT $page_size;
 }
 
 // GetHistoryTree returns all branch information of a tree
-func (h *HistoryStore) GetHistoryTree(
+func (h *HistoryStore) GetHistoryTreeContainingBranch(
 	ctx context.Context,
-	request *p.GetHistoryTreeRequest,
-) (resp *p.InternalGetHistoryTreeResponse, err error) {
+	request *p.InternalGetHistoryTreeContainingBranchRequest,
+) (resp *p.InternalGetHistoryTreeContainingBranchResponse, err error) {
 	defer func() {
-		err = xydb.ConvertToTemporalError("GetHistoryTree", err)
+		err = xydb.ConvertToTemporalError("GetHistoryTreeContainingBranch", err)
 	}()
 
-	treeID, err := primitives.ValidateUUID(request.TreeID)
+	branch, err := h.GetHistoryBranchUtil().ParseHistoryBranchInfo(request.BranchToken)
+	if err != nil {
+		return nil, err
+	}
+
+	treeID, err := primitives.ValidateUUID(branch.TreeId)
 	if err != nil {
 		return nil, fmt.Errorf("treeId UUID cast failed: %v", err)
 	}
@@ -481,7 +486,7 @@ WHERE tree_id = $tree_id;
 		treeInfos = append(treeInfos, treeInfo)
 	}
 
-	return &p.InternalGetHistoryTreeResponse{
+	return &p.InternalGetHistoryTreeContainingBranchResponse{
 		TreeInfos: treeInfos,
 	}, nil
 }
