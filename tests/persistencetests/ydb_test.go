@@ -98,16 +98,6 @@ func TestYDBTaskQueueTaskSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-// Commented out until https://github.com/temporalio/temporal/pull/4871 is merged:
-
-//func TestYDBVisibilityPersistence(t *testing.T) {
-//	s := &tests.VisibilityPersistenceSuite{
-//		TestBase:                     NewTestBaseWithYDB(&persistencetests.TestBaseOptions{}),
-//		CustomVisibilityStoreFactory: ydbvisibility.NewYDBVisibilityStoreFactory(),
-//	}
-//	suite.Run(t, s)
-//}
-
 func TestYDBHistoryV2Persistence(t *testing.T) {
 	s := new(persistencetests.HistoryV2PersistenceSuite)
 	s.TestBase = NewTestBaseWithYDB(&persistencetests.TestBaseOptions{})

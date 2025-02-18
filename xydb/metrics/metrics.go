@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	ydbMetrics "github.com/ydb-platform/ydb-go-sdk/v3/metrics"
+	"github.com/ydb-platform/ydb-go-sdk-metrics/registry"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 	"go.temporal.io/server/common/metrics"
 )
@@ -51,7 +51,7 @@ func MakeConfig(registry metrics.Handler, opts ...option) *Config {
 	return c
 }
 
-func (c *Config) CounterVec(name string, labelNames ...string) ydbMetrics.CounterVec {
+func (c *Config) CounterVec(name string, labelNames ...string) registry.CounterVec {
 	counterKey := newCounterKey(c.namespace, name)
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -75,7 +75,7 @@ func (c *Config) join(a, b string) string {
 	return strings.Join([]string{a, b}, c.separator)
 }
 
-func (c *Config) WithSystem(subsystem string) ydbMetrics.Config {
+func (c *Config) WithSystem(subsystem string) registry.Config {
 	return &Config{
 		separator:    c.separator,
 		details:      c.details,
@@ -138,7 +138,7 @@ func maybeReplaceReservedName(key string) string {
 	}
 }
 
-func (c *counterVec) With(labels map[string]string) ydbMetrics.Counter {
+func (c *counterVec) With(labels map[string]string) registry.Counter {
 	tags := make([]metrics.Tag, 0, len(labels))
 	for k, v := range labels {
 		k = maybeReplaceReservedName(k)
@@ -160,7 +160,7 @@ type gaugeVec struct {
 	g metrics.GaugeIface
 }
 
-func (c *gaugeVec) With(labels map[string]string) ydbMetrics.Gauge {
+func (c *gaugeVec) With(labels map[string]string) registry.Gauge {
 	tags := make([]metrics.Tag, 0, len(labels))
 	for k, v := range labels {
 		k = maybeReplaceReservedName(k)
@@ -194,7 +194,7 @@ type histogramVec struct {
 	h metrics.HistogramIface
 }
 
-func (h *histogramVec) With(labels map[string]string) ydbMetrics.Histogram {
+func (h *histogramVec) With(labels map[string]string) registry.Histogram {
 	tags := make([]metrics.Tag, 0, len(labels))
 	for k, v := range labels {
 		k = maybeReplaceReservedName(k)
@@ -216,7 +216,7 @@ type timerVec struct {
 	t metrics.TimerIface
 }
 
-func (t *timerVec) With(labels map[string]string) ydbMetrics.Timer {
+func (t *timerVec) With(labels map[string]string) registry.Timer {
 	tags := make([]metrics.Tag, 0, len(labels))
 	for k, v := range labels {
 		k = maybeReplaceReservedName(k)
@@ -234,7 +234,7 @@ func (t *timer) Record(d time.Duration) {
 	t.t.Record(d, t.tags...)
 }
 
-func (c *Config) GaugeVec(name string, labelNames ...string) ydbMetrics.GaugeVec {
+func (c *Config) GaugeVec(name string, labelNames ...string) registry.GaugeVec {
 	gaugeKey := newGaugeKey(c.namespace, name)
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -248,7 +248,7 @@ func (c *Config) GaugeVec(name string, labelNames ...string) ydbMetrics.GaugeVec
 	return g
 }
 
-func (c *Config) TimerVec(name string, labelNames ...string) ydbMetrics.TimerVec {
+func (c *Config) TimerVec(name string, labelNames ...string) registry.TimerVec {
 	timersKey := newTimerKey(c.namespace, name, c.timerBuckets)
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -262,7 +262,7 @@ func (c *Config) TimerVec(name string, labelNames ...string) ydbMetrics.TimerVec
 	return t
 }
 
-func (c *Config) HistogramVec(name string, buckets []float64, labelNames ...string) ydbMetrics.HistogramVec {
+func (c *Config) HistogramVec(name string, buckets []float64, labelNames ...string) registry.HistogramVec {
 	histogramsKey := newHistogramKey(c.namespace, name, buckets)
 	c.m.Lock()
 	defer c.m.Unlock()
