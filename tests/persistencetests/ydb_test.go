@@ -5,35 +5,39 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.temporal.io/server/common/log"
+	"go.temporal.io/server/common/persistence"
 	persistencetests "go.temporal.io/server/common/persistence/persistence-tests"
 	"go.temporal.io/server/common/persistence/serialization"
 	"go.temporal.io/server/common/persistence/tests"
 )
 
+var logger = log.NewNoopLogger()
+
 func TestYDBShardStoreSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	shardStore, err := testData.Factory.NewShardStore()
+	shardStore, err := factory.NewShardStore()
 	require.NoError(t, err)
 
 	s := tests.NewShardSuite(
 		t,
 		shardStore,
 		serialization.NewSerializer(),
-		testData.Logger,
+		logger,
 	)
 	suite.Run(t, s)
 }
 
 func TestYDBExecutionMutableStateStoreSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	shardStore, err := testData.Factory.NewShardStore()
+	shardStore, err := factory.NewShardStore()
 	require.NoError(t, err)
 
-	executionStore, err := testData.Factory.NewExecutionStore()
+	executionStore, err := factory.NewExecutionStore()
 	require.NoError(t, err)
 
 	s := tests.NewExecutionMutableStateSuite(
@@ -41,19 +45,20 @@ func TestYDBExecutionMutableStateStoreSuite(t *testing.T) {
 		shardStore,
 		executionStore,
 		serialization.NewSerializer(),
-		testData.Logger,
+		&persistence.HistoryBranchUtilImpl{},
+		logger,
 	)
 	suite.Run(t, s)
 }
 
 func TestYDBExecutionMutableStateTaskStoreSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	shardStore, err := testData.Factory.NewShardStore()
+	shardStore, err := factory.NewShardStore()
 	require.NoError(t, err)
 
-	executionStore, err := testData.Factory.NewExecutionStore()
+	executionStore, err := factory.NewExecutionStore()
 	require.NoError(t, err)
 
 	s := tests.NewExecutionMutableStateTaskSuite(
@@ -61,40 +66,40 @@ func TestYDBExecutionMutableStateTaskStoreSuite(t *testing.T) {
 		shardStore,
 		executionStore,
 		serialization.NewSerializer(),
-		testData.Logger,
+		logger,
 	)
 	suite.Run(t, s)
 }
 
 func TestYDBHistoryStoreSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	executionStore, err := testData.Factory.NewExecutionStore()
+	executionStore, err := factory.NewExecutionStore()
 	require.NoError(t, err)
 
-	s := tests.NewHistoryEventsSuite(t, executionStore, testData.Logger)
+	s := tests.NewHistoryEventsSuite(t, executionStore, logger)
 	suite.Run(t, s)
 }
 
 func TestYDBTaskQueueSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	taskQueueStore, err := testData.Factory.NewTaskStore()
+	taskQueueStore, err := factory.NewTaskStore()
 	require.NoError(t, err)
-	s := tests.NewTaskQueueSuite(t, taskQueueStore, testData.Logger)
+	s := tests.NewTaskQueueSuite(t, taskQueueStore, logger)
 	suite.Run(t, s)
 }
 
 func TestYDBTaskQueueTaskSuite(t *testing.T) {
-	testData, tearDown := setUpYDBTest(t)
+	factory, tearDown := setUpYDBTest(t)
 	defer tearDown()
 
-	taskQueueStore, err := testData.Factory.NewTaskStore()
+	taskQueueStore, err := factory.NewTaskStore()
 	require.NoError(t, err)
 
-	s := tests.NewTaskQueueTaskSuite(t, taskQueueStore, testData.Logger)
+	s := tests.NewTaskQueueTaskSuite(t, taskQueueStore, logger)
 	suite.Run(t, s)
 }
 

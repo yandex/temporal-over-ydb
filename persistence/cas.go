@@ -370,7 +370,21 @@ AND event_name IS NULL;
 				panic("empty current workflow row condition")
 			}
 		}
-		headStmts = append(headStmts, `
+		if currentWorkflowsRowC.mustNotExist {
+			headStmts = append(headStmts, `
+$missing_curr_exec_row = AsStruct(
+	NULL AS workflow_id,
+	NULL AS run_id,
+	true AS correct,
+	NULL AS execution_state,
+	NULL AS execution_state_encoding,
+	NULL AS current_run_id,
+	NULL AS last_write_version,
+	NULL AS state
+);
+`)
+		} else {
+			headStmts = append(headStmts, `
 $missing_curr_exec_row = AsStruct(
 	NULL AS workflow_id,
 	NULL AS run_id,
@@ -382,6 +396,7 @@ $missing_curr_exec_row = AsStruct(
 	NULL AS state
 );
 `)
+		}
 		bodyStmts = append(bodyStmts, fmt.Sprintf(`
 $curr_exec_row = SELECT (
 	workflow_id	AS workflow_id,
@@ -405,11 +420,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `, correct, suffix))
 		incorrectRowSelects = append(incorrectRowSelects, "SELECT * FROM AS_TABLE(ListNotNull(AsList($curr_exec_row))) WHERE $incorrect > 0;")
-		if currentWorkflowsRowC.mustNotExist {
-			conditionRows = append(conditionRows, "$curr_exec_row")
-		} else {
-			conditionRows = append(conditionRows, "Coalesce($curr_exec_row, $missing_curr_exec_row)")
-		}
+		conditionRows = append(conditionRows, "Coalesce($curr_exec_row, $missing_curr_exec_row)")
 	}
 	for i, cond := range workflowExecutionsRowCs {
 		suffix := fmt.Sprintf("%d", i)
@@ -430,13 +441,23 @@ AND event_name IS NULL;
 		q.Declare(runID, types.TypeUTF8)
 		params = append(params, table.ValueParam(workflowID, types.UTF8Value(cond.workflowID)))
 		params = append(params, table.ValueParam(runID, types.UTF8Value(cond.runID)))
-		headStmts = append(headStmts, fmt.Sprintf(`$missing_run_row_%s = AsStruct(
+		if cond.mustNotExist {
+			headStmts = append(headStmts, fmt.Sprintf(`$missing_run_row_%s = AsStruct(
+	NULL AS workflow_id,
+	NULL AS run_id,
+	true AS correct,
+	NULL AS db_record_version
+);
+`, suffix))
+		} else {
+			headStmts = append(headStmts, fmt.Sprintf(`$missing_run_row_%s = AsStruct(
 	NULL AS workflow_id,
 	NULL AS run_id,
 	false AS correct,
 	NULL AS db_record_version
 );
 `, suffix))
+		}
 		bodyStmts = append(bodyStmts, fmt.Sprintf(`
 $run_row_%s = SELECT (
 	workflow_id	AS workflow_id,
@@ -456,12 +477,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `, suffix, correct, workflowID, runID))
 		incorrectRowSelects = append(incorrectRowSelects, fmt.Sprintf("SELECT * FROM AS_TABLE(ListNotNull(AsList($run_row_%s))) WHERE $incorrect > 0;", suffix))
-
-		if cond.mustNotExist {
-			conditionRows = append(conditionRows, fmt.Sprintf("$run_row_%s", suffix))
-		} else {
-			conditionRows = append(conditionRows, fmt.Sprintf("Coalesce($run_row_%s, $missing_run_row_%s)", suffix, suffix))
-		}
+		conditionRows = append(conditionRows, fmt.Sprintf("Coalesce($run_row_%s, $missing_run_row_%s)", suffix, suffix))
 	}
 	conditionsTableExpr := fmt.Sprintf("AS_TABLE(AsList(\n%s\n))", strings.Join(conditionRows, ",\n"))
 	q.AddQuery(strings.Join(headStmts, "\n"))

@@ -180,7 +180,7 @@ func (f *Factory) NewQueueV2() (p.QueueV2, error) {
 }
 
 func (f *Factory) NewNexusIncomingServiceStore() (p.NexusIncomingServiceStore, error) {
-	return nil, nil
+	return NewNexusStore(f.client, f.logger)
 }
 
 // Close closes the factory

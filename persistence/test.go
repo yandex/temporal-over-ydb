@@ -2,11 +2,11 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
-	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/yandex/temporal-over-ydb/xydb"
@@ -16,67 +16,49 @@ import (
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/tests/testutils"
+
+	"a.yandex-team.ru/contrib/go/patched/goose"
 )
 
 const (
 	testYDBDatabaseName    = "local"
 	testYDBTablesDirectory = "tests"
-
-	testSchemaDir = "../../schema"
-
-	// YDBSeeds env
-	YDBSeeds = "YDB_SEEDS"
-	// YDBPort env
-	YDBPort = "YDB_PORT"
-	// YDBDefaultPort YDB default port
-	YDBDefaultPort = 2136
-	Localhost      = "127.0.0.1"
+	testSchemaDir          = "../../schema/temporal"
 )
 
-// GetYDBAddress return the YDB address
-func GetYDBAddress() string {
-	addr := os.Getenv(YDBSeeds)
-	if addr == "" {
-		addr = Localhost
-	}
-	return addr
-}
-
-// GetYDBPort return the YDB port
-func GetYDBPort() int {
-	port := os.Getenv(YDBPort)
-	if port == "" {
-		return YDBDefaultPort
-	}
-	p, err := strconv.Atoi(port)
-	if err != nil {
-		panic(fmt.Sprintf("error getting env %v", YDBPort))
-	}
-	return p
-}
-
-func setupYDBDatabase(c *xydb.Client, schemaFile, p string) error {
-	ctx := context.Background()
-	schemaPath, err := filepath.Abs(schemaFile)
-	if err != nil {
-		return err
-	}
-
-	err = c.DB.Scheme().MakeDirectory(ctx, p)
+func SetupYDBDatabase(c *xydb.Client, cfg xydb.Config, schemaDir, p string) (err error) {
+	err = c.DB.Scheme().MakeDirectory(context.Background(), p)
 	if err != nil {
 		return fmt.Errorf("failed to create YDB directory %s: %w", p, err)
 	}
 
-	content, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return fmt.Errorf("failed to read from %s: %w", schemaPath, err)
+	// https://blog.ydb.tech/migrations-in-ydb-using-goose-58137bc5c303
+	qp := url.Values{}
+	qp.Add("go_query_mode", "scripting")
+	qp.Add("go_fake_tx", "scripting")
+	qp.Add("go_query_bind", fmt.Sprintf("declare,numeric,table_path_prefix(%s)", c.GetPrefix()))
+	u := url.URL{
+		Scheme:   "grpc",
+		Host:     cfg.Endpoint,
+		Path:     cfg.Database,
+		RawQuery: qp.Encode(),
 	}
 
-	err = c.DoSchema(ctx, c.AddQueryPrefix(string(content)))
+	db, err := sql.Open("ydb", u.String())
 	if err != nil {
-		return fmt.Errorf("failed to execute scheme query: %w", err)
+		return err
 	}
-	return nil
+	defer func() {
+		if err2 := db.Close(); err2 != nil {
+			err = err2
+		}
+	}()
+
+	err = goose.SetDialect("ydb")
+	if err != nil {
+		return err
+	}
+	return goose.Up(db, schemaDir)
 }
 
 func cleanDir(client *xydb.Client, p string) error {
@@ -114,7 +96,9 @@ func ydbConfigToOptions(cfg xydb.Config) map[string]any {
 	options["endpoint"] = cfg.Endpoint
 	options["database"] = cfg.Database
 	options["folder"] = cfg.Folder
-	options["token"] = cfg.Token
+	if cfg.Token != "" {
+		options["token"] = cfg.Token
+	}
 	if cfg.UseSSL {
 		options["use_ssl"] = "true"
 	} else {
@@ -135,10 +119,11 @@ type TestCluster struct {
 
 func newYDBConfig(folder string) xydb.Config {
 	return xydb.Config{
-		Database: "local",
+		Database: os.Getenv("YDB_DATABASE"),
 		Folder:   folder,
-		Endpoint: "localhost:2136",
+		Endpoint: os.Getenv("YDB_ENDPOINT"),
 		UseSSL:   false,
+		Token:    "-",
 	}
 }
 
@@ -196,15 +181,9 @@ func (s *TestCluster) DatabaseName() string {
 
 func (s *TestCluster) SetupTestDatabase() {
 	testYDBPrefix := path.Join(testYDBDatabaseName, testYDBTablesDirectory, s.database)
-	schemaYQLPath := path.Join(s.schemaDir, "temporal/schema.yql")
-	err := setupYDBDatabase(s.Client, schemaYQLPath, testYDBPrefix)
+	err := SetupYDBDatabase(s.Client, s.Cfg, s.schemaDir, testYDBPrefix)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to setup YDB temporal database: %s", err))
-	}
-	schemaYQLPath = path.Join(s.schemaDir, "visibility/schema.yql")
-	err = setupYDBDatabase(s.Client, schemaYQLPath, testYDBPrefix)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to setup YDB visibility database: %s", err))
 	}
 }
 

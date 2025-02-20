@@ -15,18 +15,7 @@ Clone and patch Temporal source code:
 ```
 git clone https://github.com/temporalio/temporal.git
 cd ./temporal
-git checkout v1.22.3
-
-# This patch allows setting custom advanced visibility persistence,
-# see https://github.com/temporalio/temporal/pull/4871
-curl https://github.com/temporalio/temporal/compare/634a5a1223a8b2bc00b9320d17ed1f1b67182fb1..3f0ad69ad521ffb07e1bbdea1aa4da0adeb3be7e.diff -Lso- | git apply
-
-# Since the suites in the tests package are not exportable and not configurable with
-# custom persistence, for now we just patch them to use YDB:
-git apply ../tests/functests.patch
-cd ./tests
-cp ../../tests/functests.go.mod ./go.mod
-go mod tidy
+git checkout v1.24.3
 ```
 
 Run docker-compose:
@@ -35,19 +24,10 @@ cd ./tests
 docker-compose -f ./docker-compose.yml up -d
 ```
 
-Run functional server tests:
-```
-cd ./temporal/tests
-# Specific suite:
-go test . -persistenceType=nosql -persistenceDriver=ydb -run 'TestIntegrationSuite'
-# Or all of them:
-go test . -persistenceType=nosql -persistenceDriver=ydb
-```
-
 Run persistence unit tests:
 ```
 cd ./tests/persistencetests
 go mod tidy
-go test .
+YDB_DATABASE=local YDB_ENDPOINT="localhost:2136" YDB_ANONYMOUS_CREDENTIALS=1 go test . -v
 ```
 
