@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/pressly/goose/v3"
 	"github.com/yandex/temporal-over-ydb/xydb"
 	"github.com/ydb-platform/ydb-go-sdk/v3/scheme"
 	"go.temporal.io/server/common/config"
@@ -16,8 +17,6 @@ import (
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/primitives"
 	"go.temporal.io/server/tests/testutils"
-
-	"a.yandex-team.ru/contrib/go/patched/goose"
 )
 
 const (
