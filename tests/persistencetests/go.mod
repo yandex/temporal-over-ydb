@@ -5,8 +5,8 @@ go 1.19
 require (
 	github.com/yandex/temporal-over-ydb v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.8.4
-	github.com/ydb-platform/ydb-go-sdk/v3 v3.53.1
-	go.temporal.io/server v1.21.5
+	github.com/ydb-platform/ydb-go-sdk/v3 v3.95.5
+	go.temporal.io/server v1.24.3
 	go.uber.org/zap v1.26.0
 
 )
