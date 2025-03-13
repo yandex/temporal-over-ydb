@@ -44,6 +44,7 @@ USER temporal
 
 # configs
 COPY ./docker/config/config_template.yaml /etc/temporal/config/config_template.yaml
+COPY ./docker/entrypoint.sh /etc/temporal/entrypoint.sh
 
 # schema
 COPY --chown=temporal:temporal ./schema /etc/temporal/schema/ydb
