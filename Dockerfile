@@ -1,6 +1,6 @@
 ARG BUILDER_IMAGE=golang:1.22-alpine3.20
-ARG BASE_SERVER_IMAGE=temporalio/server:1.23.0
-ARG BASE_AUTO_SETUP_IMAGE=temporalio/auto-setup:1.23.0
+ARG BASE_SERVER_IMAGE=temporalio/server:1.24.3
+ARG BASE_AUTO_SETUP_IMAGE=temporalio/auto-setup:1.24.3
 
 ##### Builder #####
 FROM ${BUILDER_IMAGE} as builder
