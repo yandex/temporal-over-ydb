@@ -346,7 +346,6 @@ setup_postgres_schema() {
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
       goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
-      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_visibility -dir "${TEMPORAL_HOME}/schema/ydb/visibility"
     fi
 }
 
