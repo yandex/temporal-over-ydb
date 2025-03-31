@@ -69,7 +69,7 @@ set -eu -o pipefail
 
 : "${SKIP_DEFAULT_NAMESPACE_CREATION:=false}"
 : "${DEFAULT_NAMESPACE:=default}"
-: "${DEFAULT_NAMESPACE_RETENTION:=1}"
+: "${DEFAULT_NAMESPACE_RETENTION:=24h}"
 
 : "${SKIP_ADD_CUSTOM_SEARCH_ATTRIBUTES:=false}"
 
@@ -84,12 +84,12 @@ die() {
 
 validate_db_env() {
     case ${DB} in
-      mysql | mysql8)
+      mysql8)
           if [[ -z ${MYSQL_SEEDS} ]]; then
               die "MYSQL_SEEDS env must be set if DB is ${DB}."
           fi
           ;;
-      postgresql | postgres | postgres12 | postgres12_pgx)
+      postgres12 | postgres12_pgx)
           if [[ -z ${POSTGRES_SEEDS} ]]; then
               die "POSTGRES_SEEDS env must be set if DB is ${DB}."
           fi
@@ -105,7 +105,7 @@ validate_db_env() {
           fi
           ;;
       *)
-          die "Unsupported DB type: ${DB}."
+          die "Unsupported driver specified: 'DB=${DB}'. Valid drivers are: ydb, mysql8, postgres12, postgres12_pgx, cassandra."
           ;;
     esac
 }
@@ -175,10 +175,10 @@ wait_for_ydb() {
 
 wait_for_db() {
     case ${DB} in
-      mysql | mysql8)
+      mysql8)
           wait_for_mysql
           ;;
-      postgresql | postgres | postgres12 | postgres12_pgx)
+      postgres12 | postgres12_pgx)
           wait_for_postgres
           ;;
       cassandra)
@@ -222,12 +222,7 @@ setup_mysql_schema() {
         MYSQL_CONNECT_ATTR=()
     fi
 
-    if [[ ${DB} == "mysql8" ]]; then
-      MYSQL_VERSION_DIR=v8
-    else
-      MYSQL_VERSION_DIR=v57
-    fi
-
+    MYSQL_VERSION_DIR=v8
     SCHEMA_DIR=${TEMPORAL_HOME}/schema/mysql/${MYSQL_VERSION_DIR}/temporal/versioned
     if [[ ${SKIP_DB_CREATE} != true ]]; then
         temporal-sql-tool --plugin "${DB}" --ep "${MYSQL_SEEDS}" -u "${MYSQL_USER}" -p "${DB_PORT}" "${MYSQL_CONNECT_ATTR[@]}" --db "${DBNAME}" create
@@ -247,19 +242,12 @@ setup_postgres_schema() {
     # TODO (alex): Remove exports
     export SQL_PASSWORD=${POSTGRES_PWD}
 
-    if [[ ${DB} == "postgres12" || ${DB} == "postgres12_pgx" ]]; then
-      POSTGRES_VERSION_DIR=v12
-      PLUGIN_NAME=${DB}
-    else
-      POSTGRES_VERSION_DIR=v96
-      PLUGIN_NAME=postgres
-    fi
-
+    POSTGRES_VERSION_DIR=v12
     SCHEMA_DIR=${TEMPORAL_HOME}/schema/postgresql/${POSTGRES_VERSION_DIR}/temporal/versioned
     # Create database only if its name is different from the user name. Otherwise PostgreSQL container itself will create database.
     if [[ ${DBNAME} != "${POSTGRES_USER}" && ${SKIP_DB_CREATE} != true ]]; then
         temporal-sql-tool \
-            --plugin ${PLUGIN_NAME} \
+            --plugin ${DB} \
             --ep "${POSTGRES_SEEDS}" \
             -u "${POSTGRES_USER}" \
             -p "${DB_PORT}" \
@@ -273,7 +261,7 @@ setup_postgres_schema() {
             create
     fi
     temporal-sql-tool \
-        --plugin ${PLUGIN_NAME} \
+        --plugin ${DB} \
         --ep "${POSTGRES_SEEDS}" \
         -u "${POSTGRES_USER}" \
         -p "${DB_PORT}" \
@@ -286,7 +274,7 @@ setup_postgres_schema() {
         --tls-server-name "${POSTGRES_TLS_SERVER_NAME}" \
         setup-schema -v 0.0
     temporal-sql-tool \
-        --plugin ${PLUGIN_NAME} \
+        --plugin ${DB} \
         --ep "${POSTGRES_SEEDS}" \
         -u "${POSTGRES_USER}" \
         -p "${DB_PORT}" \
@@ -302,7 +290,7 @@ setup_postgres_schema() {
     VISIBILITY_SCHEMA_DIR=${TEMPORAL_HOME}/schema/postgresql/${POSTGRES_VERSION_DIR}/visibility/versioned
     if [[ ${VISIBILITY_DBNAME} != "${POSTGRES_USER}" && ${SKIP_DB_CREATE} != true ]]; then
         temporal-sql-tool \
-            --plugin ${PLUGIN_NAME} \
+            --plugin ${DB} \
             --ep "${POSTGRES_SEEDS}" \
             -u "${POSTGRES_USER}" \
             -p "${DB_PORT}" \
@@ -316,7 +304,7 @@ setup_postgres_schema() {
             create
     fi
     temporal-sql-tool \
-        --plugin ${PLUGIN_NAME} \
+        --plugin ${DB} \
         --ep "${POSTGRES_SEEDS}" \
         -u "${POSTGRES_USER}" \
         -p "${DB_PORT}" \
@@ -329,7 +317,7 @@ setup_postgres_schema() {
         --tls-server-name "${POSTGRES_TLS_SERVER_NAME}" \
         setup-schema -v 0.0
     temporal-sql-tool \
-        --plugin ${PLUGIN_NAME} \
+        --plugin ${DB} \
         --ep "${POSTGRES_SEEDS}" \
         -u "${POSTGRES_USER}" \
         -p "${DB_PORT}" \
@@ -351,11 +339,11 @@ setup_ydb_schema() {
 
 setup_schema() {
     case ${DB} in
-      mysql | mysql8)
+      mysql8)
           echo 'Setup MySQL schema.'
           setup_mysql_schema
           ;;
-      postgresql | postgres | postgres12 | postgres12_pgx)
+      postgres12 | postgres12_pgx)
           echo 'Setup PostgreSQL schema.'
           setup_postgres_schema
           ;;
