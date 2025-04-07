@@ -76,6 +76,10 @@ func IsPreconditionFailedAndContains(err error, substr string) bool {
 	return rv
 }
 
+func IsIntermediateDataMaterializationExceededSizeLimitError(err error) bool {
+	return IsPreconditionFailedAndContains(err, "Intermediate data materialization exceeded size limit")
+}
+
 type RootCauseError struct {
 	new     func(message string) error
 	message string

@@ -11,3 +11,7 @@ const (
 	eventTypeBufferedEvent
 	eventTypeSignalRequested
 )
+
+const (
+	slowDeleteBatchSize = 10000
+)
