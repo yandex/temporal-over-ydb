@@ -1,9 +1,9 @@
-ARG BUILDER_IMAGE=golang:1.22-alpine3.20
+ARG BUILDER_IMAGE=golang:1.23-alpine3.20
 ARG BASE_SERVER_IMAGE=temporalio/server:1.24.3
 ARG BASE_AUTO_SETUP_IMAGE=temporalio/auto-setup:1.24.3
 
 ##### Builder #####
-FROM ${BUILDER_IMAGE} as builder
+FROM ${BUILDER_IMAGE} AS builder
 
 WORKDIR /build
 
@@ -13,11 +13,11 @@ RUN go mod download
 
 COPY . ./
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-server ./server/main.go
-RUN go install github.com/pressly/goose/v3/cmd/goose@v3.22.0
+RUN CGO_ENABLED=0 GOOS=linux go build -o /ydb-migrator ./temporal-over-ydb/cmd/migrator
+RUN CGO_ENABLED=0 GOOS=linux go build -o /temporal-server ./temporal-over-ydb/cmd/server
 
 ##### Temporal server #####
-FROM ${BASE_SERVER_IMAGE} as temporal-server-ydb
+FROM ${BASE_SERVER_IMAGE} AS temporal-server-ydb
 
 WORKDIR /etc/temporal
 
@@ -29,7 +29,7 @@ COPY ./docker/config/config_template.yaml /etc/temporal/config/config_template.y
 
 
 ### Server auto-setup image ###
-FROM ${BASE_AUTO_SETUP_IMAGE} as temporal-server-ydb-auto-setup
+FROM ${BASE_AUTO_SETUP_IMAGE} AS temporal-server-ydb-auto-setup
 
 WORKDIR /etc/temporal
 
@@ -37,7 +37,7 @@ WORKDIR /etc/temporal
 # temporal-ydb binary
 COPY --from=builder /temporal-server /usr/local/bin
 # goose binary
-COPY --from=builder /go/bin/goose /usr/local/bin
+COPY --from=builder /ydb-migrator /usr/local/bin
 
 USER temporal
 

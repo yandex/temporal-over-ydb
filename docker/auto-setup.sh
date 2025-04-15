@@ -103,6 +103,9 @@ validate_db_env() {
           if [[ -z ${YDB_SEEDS} ]]; then
               die "YDB_SEEDS env must be set if DB is ${DB}."
           fi
+          if [[ -n "${YDB_TOKEN}" ]]; then
+              export YDB_ACCESS_TOKEN_CREDENTIALS="${YDB_TOKEN}"
+          fi
           ;;
       *)
           die "Unsupported driver specified: 'DB=${DB}'. Valid drivers are: ydb, mysql8, postgres12, postgres12_pgx, cassandra."
@@ -146,26 +149,8 @@ wait_for_postgres() {
     echo 'PostgreSQL started.'
 }
 
-get_ydb_endpoint_protocol() {
-     if [[ ${YDB_USE_SSL} == true ]]; then
-        echo "grpcs";
-     else
-        echo "grpc";
-     fi
- }
-
- get_ydb_goose_dsn() {
-    protocol="$(get_ydb_endpoint_protocol)"
-    parameters="go_query_mode=scripting&go_fake_tx=scripting&go_query_bind=table_path_prefix(${YDB_DBNAME}/${YDB_TABLE_PATH}),declare,numeric"
-    if [ -n "${YDB_TOKEN}" ]; then
-      parameters="token=${YDB_TOKEN}&${parameters}"
-    fi
-
-    echo "${protocol}://${YDB_SEEDS}:${YDB_PORT}/${YDB_DBNAME}?${parameters}"
- }
-
 wait_for_ydb() {
-    until goose ydb "$(get_ydb_goose_dsn)" version -table goose_db_version_temporal; do
+    until ydb-migrator --host "${YDB_SEEDS}" --port "${YDB_PORT}" --db "${YDB_DBNAME}" --prefix "${YDB_TABLE_PATH}" ping; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -333,7 +318,14 @@ setup_postgres_schema() {
 
 setup_ydb_schema() {
     if [[ ${SKIP_DB_CREATE} != true ]]; then
-      goose ydb "$(get_ydb_goose_dsn)" up -table goose_db_version_temporal -dir "${TEMPORAL_HOME}/schema/ydb/temporal"
+      ydb-migrator \
+        --host "${YDB_SEEDS}" \
+        --port "${YDB_PORT}" \
+        --db "${YDB_DBNAME}" \
+        --prefix "${YDB_TABLE_PATH}" \
+        up \
+        --schema-dir "${TEMPORAL_HOME}/schema/ydb/temporal" \
+        --version-table goose_db_version_temporal
     fi
 }
 

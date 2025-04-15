@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE tasks_and_task_queues
+CREATE TABLE IF NOT EXISTS tasks_and_task_queues
 (
     namespace_id        Utf8  NOT NULL,
     task_queue_name     Utf8  NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE tasks_and_task_queues
 -- PK (shard_id, namespace_id, workflow_id, run_id, NULL, NULL, NULL, event_type, event_id, event_id, ...) - event
 -- PK (shard_id, NULL, NULL, NULL, task_category_id, task_visibility_ts, task_id, NULL, ...) - task
 
-CREATE TABLE executions
+CREATE TABLE IF NOT EXISTS executions
 (
     shard_id                 Uint32 NOT NULL,
     namespace_id             Utf8,
@@ -73,7 +73,7 @@ CREATE TABLE executions
       KEY_BLOOM_FILTER = ENABLED
       );
 
-CREATE TABLE history_node
+CREATE TABLE IF NOT EXISTS history_node
 (
     tree_id       Utf8  NOT NULL, -- run_id if no reset, otherwise run_id of first run
     branch_id     Utf8  NOT NULL, -- changes in case of reset workflow. Conflict resolution can also change branch id.
@@ -88,7 +88,7 @@ CREATE TABLE history_node
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE history_tree
+CREATE TABLE IF NOT EXISTS history_tree
 (
     tree_id         Utf8 NOT NULL,
     branch_id       Utf8 NOT NULL,
@@ -100,7 +100,7 @@ CREATE TABLE history_tree
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE replication_tasks
+CREATE TABLE IF NOT EXISTS replication_tasks
 (
     shard_id            Uint32,
     source_cluster_name Utf8,
@@ -113,7 +113,7 @@ CREATE TABLE replication_tasks
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE cluster_metadata_info
+CREATE TABLE IF NOT EXISTS cluster_metadata_info
 (
     cluster_name       Utf8,
     data               String,
@@ -125,7 +125,7 @@ CREATE TABLE cluster_metadata_info
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE queue
+CREATE TABLE IF NOT EXISTS queue
 (
     queue_type       Int32,
     message_id       Int64,
@@ -137,7 +137,7 @@ CREATE TABLE queue
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE queue_metadata
+CREATE TABLE IF NOT EXISTS queue_metadata
 (
     queue_type    Int32,
     data          String,
@@ -151,14 +151,14 @@ CREATE TABLE queue_metadata
 
 
 -- this table is only used for storage of mapping of namespace uuid to namespace name
-CREATE TABLE namespaces_by_id
+CREATE TABLE IF NOT EXISTS namespaces_by_id
 (
     id   Utf8,
     name Utf8,
     PRIMARY KEY (id)
 );
 
-CREATE TABLE namespaces
+CREATE TABLE IF NOT EXISTS namespaces
 (
     name                 Utf8,
     id                   Utf8,
@@ -169,7 +169,7 @@ CREATE TABLE namespaces
     PRIMARY KEY (name)
 );
 
-CREATE TABLE cluster_membership
+CREATE TABLE IF NOT EXISTS cluster_membership
 (
     host_id              Utf8,
     rpc_address          Utf8,
@@ -186,7 +186,7 @@ CREATE TABLE cluster_membership
       AUTO_PARTITIONING_BY_LOAD = ENABLED
       );
 
-CREATE TABLE task_queue_user_data
+CREATE TABLE IF NOT EXISTS task_queue_user_data
 (
     namespace_id    Utf8,
     task_queue_name Utf8,
@@ -196,26 +196,10 @@ CREATE TABLE task_queue_user_data
     PRIMARY KEY (namespace_id, task_queue_name)
 );
 
-CREATE TABLE build_id_to_task_queue
+CREATE TABLE IF NOT EXISTS build_id_to_task_queue
 (
     namespace_id    Utf8,
     build_id        Utf8,
     task_queue_name Utf8,
     PRIMARY KEY (namespace_id, build_id, task_queue_name)
 );
-
-
--- +goose Down
-DROP TABLE tasks_and_task_queues;
-DROP TABLE executions;
-DROP TABLE history_node;
-DROP TABLE history_tree;
-DROP TABLE replication_tasks;
-DROP TABLE cluster_metadata_info;
-DROP TABLE queue;
-DROP TABLE queue_metadata;
-DROP TABLE namespaces_by_id;
-DROP TABLE namespaces;
-DROP TABLE cluster_membership;
-DROP TABLE task_queue_user_data;
-DROP TABLE build_id_to_task_queue;
