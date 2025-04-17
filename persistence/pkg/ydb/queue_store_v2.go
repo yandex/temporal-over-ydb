@@ -52,6 +52,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 			err = conn.ConvertToTemporalError("EnqueueMessage", err)
 		}
 	}()
+
 	// TODO: add concurrency control around this method to avoid things like QueueMessageIDConflict.
 	// TODO: cache the queue in memory to avoid querying the database every time.
 	_, err = s.getQueue(ctx, request.QueueType, request.QueueName)
