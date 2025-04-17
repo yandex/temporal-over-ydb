@@ -92,6 +92,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 		}
 		return nil, err
 	}
+
 	return &persistence.InternalEnqueueMessageResponse{
 		Metadata: persistence.MessageMetadata{ID: messageID},
 	}, nil
