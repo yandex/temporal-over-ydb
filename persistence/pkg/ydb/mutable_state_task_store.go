@@ -165,6 +165,71 @@ AND event_name IS NULL;
 	))
 }
 
+func (d *MutableStateTaskStore) completeTasksInIDRangeSlow(ctx context.Context, shardID int32, categoryID int32, inclusiveMinTaskID, exclusiveMaxTaskID int64) error {
+	template := d.client.AddQueryPrefix(`
+DECLARE $shard_id AS uint32;
+DECLARE $task_id_gte AS Int64;
+DECLARE $task_id_lt AS Int64;
+DECLARE $task_category_id AS Int32;
+DECLARE $limit AS Int32;
+
+$to_delete = (
+	SELECT *
+	FROM executions
+	WHERE shard_id = $shard_id
+	AND namespace_id IS NULL
+	AND workflow_id IS NULL
+	AND run_id IS NULL
+	AND task_category_id = $task_category_id
+	AND task_visibility_ts IS NULL
+	AND task_id >= $task_id_gte
+	AND task_id < $task_id_lt
+	AND event_type IS NULL
+	AND event_id IS NULL
+	AND event_name IS NULL
+	LIMIT $limit
+);
+
+DELETE FROM executions
+ON SELECT * FROM $to_delete
+RETURNING task_id
+;
+`)
+	for {
+		more, err := func() (more bool, err error) {
+			res, err := d.client.Do(ctx, template, table.SerializableReadWriteTxControl(table.CommitTx()), table.NewQueryParameters(
+				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID))),
+				table.ValueParam("$task_category_id", types.Int32Value(int32(categoryID))),
+				table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
+				table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
+				table.ValueParam("$limit", types.Int32Value(rows.SlowDeleteBatchSize)),
+			))
+			if err != nil {
+				return false, err
+			}
+			defer func() {
+				err2 := res.Close()
+				if err == nil {
+					err = err2
+				}
+			}()
+			if err = res.NextResultSetErr(ctx); err != nil {
+				return false, err
+			}
+			for res.NextRow() {
+				return true, nil
+			}
+			return false, nil
+		}()
+		if err != nil {
+			return err
+		}
+		if !more {
+			return nil
+		}
+	}
+}
+
 func (d *MutableStateTaskStore) completeTasksInIDRange(ctx context.Context, shardID, categoryID int32, inclusiveMinTaskID, exclusiveMaxTaskID int64) error {
 	template := d.client.AddQueryPrefix(`
 DECLARE $shard_id AS uint32;
@@ -185,12 +250,84 @@ AND event_type IS NULL
 AND event_id IS NULL
 AND event_name IS NULL;
 `)
-	return d.client.Write(ctx, template, table.NewQueryParameters(
+	err := d.client.Write(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 		table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
 	))
+	if err != nil {
+		if conn.IsIntermediateDataMaterializationExceededSizeLimitError(err) {
+			d.logger.Warn("Fallback to completeTasksInIDRangeSlow")
+			return d.completeTasksInIDRangeSlow(ctx, shardID, categoryID, inclusiveMinTaskID, exclusiveMaxTaskID)
+		}
+		return err
+	}
+	return nil
+}
+
+func (d *MutableStateTaskStore) completeTasksInVisibilityTSRangeSlow(ctx context.Context, shardID int32, categoryID int32, inclusiveMinVisibilityTS, exclusiveMaxVisibilityTS time.Time) error {
+	template := d.client.AddQueryPrefix(`
+DECLARE $shard_id AS uint32;
+DECLARE $task_category_id AS Int32;
+DECLARE $task_visibility_ts_gte AS Timestamp;
+DECLARE $task_visibility_ts_lt AS Timestamp;
+DECLARE $limit AS Int32;
+
+$to_delete = (
+	SELECT *
+	FROM executions
+	WHERE shard_id = $shard_id
+	AND namespace_id IS NULL
+	AND workflow_id IS NULL
+	AND run_id IS NULL
+	AND task_category_id = $task_category_id
+	AND task_visibility_ts >= $task_visibility_ts_gte
+	AND task_visibility_ts < $task_visibility_ts_lt
+	AND event_type IS NULL
+	AND event_id IS NULL
+	AND event_name IS NULL
+	LIMIT $limit
+);
+
+DELETE FROM executions
+ON SELECT * FROM $to_delete
+RETURNING task_id
+;
+`)
+	for {
+		more, err := func() (more bool, err error) {
+			res, err := d.client.Do(ctx, template, table.SerializableReadWriteTxControl(table.CommitTx()), table.NewQueryParameters(
+				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID))),
+				table.ValueParam("$task_category_id", types.Int32Value(int32(categoryID))),
+				table.ValueParam("$task_visibility_ts_gte", types.TimestampValueFromTime(conn.ToYDBDateTime(inclusiveMinVisibilityTS))),
+				table.ValueParam("$task_visibility_ts_lt", types.TimestampValueFromTime(conn.ToYDBDateTime(exclusiveMaxVisibilityTS))),
+				table.ValueParam("$limit", types.Int32Value(rows.SlowDeleteBatchSize)),
+			))
+			if err != nil {
+				return false, err
+			}
+			defer func() {
+				err2 := res.Close()
+				if err == nil {
+					err = err2
+				}
+			}()
+			if err = res.NextResultSetErr(ctx); err != nil {
+				return false, err
+			}
+			for res.NextRow() {
+				return true, nil
+			}
+			return false, nil
+		}()
+		if err != nil {
+			return err
+		}
+		if !more {
+			return nil
+		}
+	}
 }
 
 func (d *MutableStateTaskStore) completeTasksInVisibilityTSRange(
@@ -215,12 +352,20 @@ AND event_type IS NULL
 AND event_id IS NULL
 AND event_name IS NULL;
 `)
-	return d.client.Write(ctx, template, table.NewQueryParameters(
+	err := d.client.Write(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_visibility_ts_gte", types.TimestampValueFromTime(conn.ToYDBDateTime(inclusiveMinVisibilityTS))),
 		table.ValueParam("$task_visibility_ts_lt", types.TimestampValueFromTime(conn.ToYDBDateTime(exclusiveMaxVisibilityTS))),
 	))
+	if err != nil {
+		if conn.IsIntermediateDataMaterializationExceededSizeLimitError(err) {
+			d.logger.Warn("Fallback to completeTasksInVisibilityTSRangeSlow")
+			return d.completeTasksInVisibilityTSRangeSlow(ctx, shardID, categoryID, inclusiveMinVisibilityTS, exclusiveMaxVisibilityTS)
+		}
+		return err
+	}
+	return nil
 }
 
 func (d *MutableStateTaskStore) getTasksByIDRange(ctx context.Context, shardID, categoryID int32, inclusiveMinTaskID, exclusiveMaxTaskID int64, batchSize int32) (resp []p.InternalHistoryTask, err error) {

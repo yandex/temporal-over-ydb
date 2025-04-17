@@ -58,6 +58,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 	if err != nil {
 		return nil, err
 	}
+
 	messageID, err := s.getNextMessageID(ctx, request.QueueType, request.QueueName)
 	if err != nil {
 		return nil, err
@@ -217,6 +218,7 @@ func (s *QueueStoreV2) RangeDeleteMessages(ctx context.Context, request *persist
 			persistence.FirstQueueMessageID,
 		))
 	}
+
 	queueType := request.QueueType
 	queueName := request.QueueName
 	q, err := s.getQueue(ctx, queueType, queueName)

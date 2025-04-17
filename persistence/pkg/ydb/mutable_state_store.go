@@ -2,6 +2,7 @@ package ydb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
@@ -125,69 +126,10 @@ AND task_visibility_ts IS NULL;
 	if err = res.NextResultSetErr(ctx); err != nil {
 		return nil, err
 	}
-	if !res.NextRow() {
-		return nil, conn.NewRootCauseError(serviceerror.NewNotFound, "workflow execution not found")
-	}
 
 	state, dbRecordVersion, err := d.scanMutableState(res)
 	if err != nil {
 		return nil, err
-	}
-	if state == nil {
-		return nil, conn.NewRootCauseError(serviceerror.NewNotFound, "workflow execution not found")
-	}
-
-	state.ActivityInfos = make(map[int64]*commonpb.DataBlob)
-	state.TimerInfos = make(map[string]*commonpb.DataBlob)
-	state.ChildExecutionInfos = make(map[int64]*commonpb.DataBlob)
-	state.RequestCancelInfos = make(map[int64]*commonpb.DataBlob)
-	state.SignalInfos = make(map[int64]*commonpb.DataBlob)
-	state.SignalRequestedIDs = make([]string, 0)
-	state.BufferedEvents = make([]*commonpb.DataBlob, 0)
-
-	for res.NextRow() {
-		var itemID int64
-		var itemName string
-		var itemType int32
-		var data []byte
-		var encoding string
-		var encodingType conn.EncodingTypeRaw
-		var encodingScanner named.Value
-		if d.client.UseIntForEncoding() {
-			encodingScanner = named.OptionalWithDefault("data_encoding", &encodingType)
-		} else {
-			encodingScanner = named.OptionalWithDefault("data_encoding", &encoding)
-		}
-		if err = res.ScanNamed(
-			named.OptionalWithDefault("event_type", &itemType),
-			named.OptionalWithDefault("event_id", &itemID),
-			named.OptionalWithDefault("event_name", &itemName),
-			named.OptionalWithDefault("data", &data),
-			encodingScanner,
-		); err != nil {
-			return nil, fmt.Errorf("failed to scan event: %w", err)
-		}
-		if d.client.UseIntForEncoding() {
-			encoding = enumspb.EncodingType(encodingType).String()
-		}
-		switch itemType {
-		case baserows.ItemTypeActivity:
-			state.ActivityInfos[itemID] = p.NewDataBlob(data, encoding)
-		case baserows.ItemTypeTimer:
-			state.TimerInfos[itemName] = p.NewDataBlob(data, encoding)
-		case baserows.ItemTypeChildExecution:
-			state.ChildExecutionInfos[itemID] = p.NewDataBlob(data, encoding)
-		case baserows.ItemTypeRequestCancel:
-			state.RequestCancelInfos[itemID] = p.NewDataBlob(data, encoding)
-		case baserows.ItemTypeSignal:
-			state.SignalInfos[itemID] = p.NewDataBlob(data, encoding)
-		case baserows.ItemTypeSignalRequested:
-			state.SignalRequestedIDs = append(state.SignalRequestedIDs, itemName)
-		case baserows.ItemTypeBufferedEvent:
-			state.BufferedEvents = append(state.BufferedEvents, p.NewDataBlob(data, encoding))
-		default:
-			return nil, fmt.Errorf("unknown item type: %d", itemType)
-		}
 	}
 
 	return &p.InternalGetWorkflowExecutionResponse{
@@ -200,7 +142,6 @@ func (d *MutableStateStore) DeleteWorkflowExecution(
 	ctx context.Context,
 	request *p.DeleteWorkflowExecutionRequest,
 ) error {
-	// XXX TODO delete events as well?
 	template := d.client.AddQueryPrefix(d.client.NamspaceIDDecl() + d.client.RunIDDecl() + `
 DECLARE $shard_id AS uint32;
 DECLARE $workflow_id AS Utf8;
@@ -213,9 +154,7 @@ AND run_id = $run_id
 AND task_id IS NULL
 AND task_category_id IS NULL
 AND task_visibility_ts IS NULL
-AND event_type IS NULL
-AND event_id IS NULL
-AND event_name IS NULL;
+;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
@@ -359,64 +298,118 @@ func (d *MutableStateStore) ListConcreteExecutions(
 }
 
 func (d *MutableStateStore) scanMutableState(res result.Result) (*p.InternalWorkflowMutableState, int64, error) {
-	var data []byte
-	var encoding string
-	var encodingType conn.EncodingTypeRaw
-	var encodingPtr interface{}
-	if d.client.UseIntForEncoding() {
-		encodingPtr = &encodingType
-	} else {
-		encodingPtr = &encoding
+	var resultDBRecordVersion int64
+
+	state := &p.InternalWorkflowMutableState{
+		ActivityInfos:       make(map[int64]*commonpb.DataBlob),
+		TimerInfos:          make(map[string]*commonpb.DataBlob),
+		ChildExecutionInfos: make(map[int64]*commonpb.DataBlob),
+		RequestCancelInfos:  make(map[int64]*commonpb.DataBlob),
+		SignalInfos:         make(map[int64]*commonpb.DataBlob),
 	}
-	var nextEventID int64
-	var dbRecordVersion int64
-	var stateData []byte
-	var stateEncoding string
-	var stateEncodingType conn.EncodingTypeRaw
-	var stateEncodingPtr interface{}
-	if d.client.UseIntForEncoding() {
-		stateEncodingPtr = &stateEncodingType
-	} else {
-		stateEncodingPtr = &stateEncoding
+
+	for res.NextRow() {
+		var executionData []byte
+		var executionEncoding string
+		var encodingType conn.EncodingTypeRaw
+		var encodingPtr any
+		if d.client.UseIntForEncoding() {
+			encodingPtr = &encodingType
+		} else {
+			encodingPtr = &executionEncoding
+		}
+		var nextEventID int64
+		var stateData []byte
+		var stateEncoding string
+		var stateEncodingType conn.EncodingTypeRaw
+		var stateEncodingPtr any
+		if d.client.UseIntForEncoding() {
+			stateEncodingPtr = &stateEncodingType
+		} else {
+			stateEncodingPtr = &stateEncoding
+		}
+		var checksumData []byte
+		var checksumEncoding string
+		var checksumEncodingType conn.EncodingTypeRaw
+		var checksumEncodingPtr any
+		if d.client.UseIntForEncoding() {
+			checksumEncodingPtr = &checksumEncodingType
+		} else {
+			checksumEncodingPtr = &checksumEncoding
+		}
+		var eventType int32
+		var eventID int64
+		var eventName string
+		var eventData []byte
+		var eventEncoding string
+		var eventEncodingType conn.EncodingTypeRaw
+		var eventEncodingPtr any
+		if d.client.UseIntForEncoding() {
+			eventEncodingPtr = &eventEncodingType
+		} else {
+			eventEncodingPtr = &eventEncoding
+		}
+		var dbRecordVersion int64
+		if err := res.ScanNamed(
+			named.OptionalWithDefault("next_event_id", &nextEventID),
+			named.OptionalWithDefault("execution", &executionData),
+			named.OptionalWithDefault("execution_encoding", encodingPtr),
+			named.OptionalWithDefault("db_record_version", &dbRecordVersion),
+			named.OptionalWithDefault("execution_state", &stateData),
+			named.OptionalWithDefault("execution_state_encoding", stateEncodingPtr),
+			named.OptionalWithDefault("checksum", &checksumData),
+			named.OptionalWithDefault("checksum_encoding", checksumEncodingPtr),
+			named.OptionalWithDefault("event_type", &eventType),
+			named.OptionalWithDefault("event_id", &eventID),
+			named.OptionalWithDefault("event_name", &eventName),
+			named.OptionalWithDefault("data_encoding", eventEncodingPtr),
+			named.OptionalWithDefault("data", &eventData),
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan execution: %w", err)
+		}
+
+		if d.client.UseIntForEncoding() {
+			executionEncoding = enumspb.EncodingType(encodingType).String()
+			stateEncoding = enumspb.EncodingType(stateEncodingType).String()
+			checksumEncoding = enumspb.EncodingType(checksumEncodingType).String()
+			eventEncoding = enumspb.EncodingType(eventEncodingType).String()
+		}
+
+		if eventID > 0 || len(eventName) > 0 {
+			switch eventType {
+			case baserows.ItemTypeActivity:
+				state.ActivityInfos[eventID] = p.NewDataBlob(eventData, eventEncoding)
+			case baserows.ItemTypeTimer:
+				state.TimerInfos[eventName] = p.NewDataBlob(eventData, eventEncoding)
+			case baserows.ItemTypeChildExecution:
+				state.ChildExecutionInfos[eventID] = p.NewDataBlob(eventData, eventEncoding)
+			case baserows.ItemTypeRequestCancel:
+				state.RequestCancelInfos[eventID] = p.NewDataBlob(eventData, eventEncoding)
+			case baserows.ItemTypeSignal:
+				state.SignalInfos[eventID] = p.NewDataBlob(eventData, eventEncoding)
+			case baserows.ItemTypeSignalRequested:
+				state.SignalRequestedIDs = append(state.SignalRequestedIDs, eventName)
+			case baserows.ItemTypeBufferedEvent:
+				state.BufferedEvents = append(state.BufferedEvents, p.NewDataBlob(eventData, eventEncoding))
+			default:
+				return nil, 0, fmt.Errorf("unknown event type: %d", eventType)
+			}
+		} else {
+			if state.ExecutionInfo != nil {
+				return nil, 0, errors.New("got multiple executions rows")
+			}
+			state.ExecutionInfo = p.NewDataBlob(executionData, executionEncoding)
+			state.ExecutionState = p.NewDataBlob(stateData, stateEncoding)
+			state.Checksum = p.NewDataBlob(checksumData, checksumEncoding)
+			state.NextEventID = nextEventID
+			resultDBRecordVersion = dbRecordVersion
+		}
 	}
-	var checksumData []byte
-	var checksumEncoding string
-	var checksumEncodingType conn.EncodingTypeRaw
-	var checksumEncodingPtr interface{}
-	if d.client.UseIntForEncoding() {
-		checksumEncodingPtr = &checksumEncodingType
-	} else {
-		checksumEncodingPtr = &checksumEncoding
+
+	if state.ExecutionInfo == nil {
+		// TODO: return Unavailable instead of NotFound if we have seen at least one row
+		return nil, 0, conn.NewRootCauseError(serviceerror.NewNotFound, "workflow execution not found")
 	}
-	var eventID int64
-	var eventName string
-	if err := res.ScanNamed(
-		named.OptionalWithDefault("next_event_id", &nextEventID),
-		named.OptionalWithDefault("execution", &data),
-		named.OptionalWithDefault("execution_encoding", encodingPtr),
-		named.OptionalWithDefault("db_record_version", &dbRecordVersion),
-		named.OptionalWithDefault("execution_state", &stateData),
-		named.OptionalWithDefault("execution_state_encoding", stateEncodingPtr),
-		named.OptionalWithDefault("checksum", &checksumData),
-		named.OptionalWithDefault("checksum_encoding", checksumEncodingPtr),
-		named.OptionalWithDefault("event_id", &eventID),
-		named.OptionalWithDefault("event_name", &eventName),
-	); err != nil {
-		return nil, 0, fmt.Errorf("failed to scan execution: %w", err)
-	}
-	if eventID > 0 || len(eventName) > 0 {
-		// expected an execution, scanned an event
-		return nil, 0, nil
-	}
-	if d.client.UseIntForEncoding() {
-		encoding = enumspb.EncodingType(encodingType).String()
-		stateEncoding = enumspb.EncodingType(stateEncodingType).String()
-		checksumEncoding = enumspb.EncodingType(checksumEncodingType).String()
-	}
-	return &p.InternalWorkflowMutableState{
-		ExecutionInfo:  p.NewDataBlob(data, encoding),
-		ExecutionState: p.NewDataBlob(stateData, stateEncoding),
-		Checksum:       p.NewDataBlob(checksumData, checksumEncoding),
-		NextEventID:    nextEventID,
-	}, dbRecordVersion, nil
+
+	return state, resultDBRecordVersion, nil
 }

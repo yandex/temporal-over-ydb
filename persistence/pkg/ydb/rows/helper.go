@@ -8,6 +8,8 @@ import (
 	"go.temporal.io/server/common/primitives"
 )
 
+const SlowDeleteBatchSize = 10000
+
 var NumHistoryShards = 1024
 
 func ToShardIDColumnValue(shardID int32) uint32 {
