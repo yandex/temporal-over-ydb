@@ -75,6 +75,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 		INSERT INTO queue_v2_message (queue_type, queue_name, queue_partition, message_id, message_payload, message_encoding)
 		VALUES ($queue_type, $queue_name, $queue_partition, $message_id, $message_payload, $message_encoding);
 		`)
+
 	err = s.client.Write(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$queue_type", types.Int32Value(int32(request.QueueType))),
 		table.ValueParam("$queue_name", types.UTF8Value(request.QueueName)),
