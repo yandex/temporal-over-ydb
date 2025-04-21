@@ -179,14 +179,14 @@ func (qt *QueueV2PageToken) Deserialize(payload []byte) error {
 	return nil
 }
 
-type NexusIncomingServicesPageToken struct {
-	LastSeenServiceID string
+type NexusEndpointsPageToken struct {
+	LastSeenEndpointID string
 }
 
-func (pt *NexusIncomingServicesPageToken) Serialize() []byte {
-	return []byte(pt.LastSeenServiceID)
+func (pt *NexusEndpointsPageToken) Serialize() []byte {
+	return []byte(pt.LastSeenEndpointID)
 }
 
-func (pt *NexusIncomingServicesPageToken) Deserialize(payload []byte) {
-	pt.LastSeenServiceID = string(payload)
+func (pt *NexusEndpointsPageToken) Deserialize(payload []byte) {
+	pt.LastSeenEndpointID = string(payload)
 }

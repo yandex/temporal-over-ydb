@@ -106,7 +106,7 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 	clusterName string,
 	logger log.Logger,
 	metricsHandler metrics.Handler,
-) client.DataStoreFactory {
+) p.DataStoreFactory {
 	return NewFactory(
 		cfg,
 		resolver.NewNoopResolver(),
@@ -217,7 +217,7 @@ func (f *Factory) NewQueueV2() (p.QueueV2, error) {
 	return NewQueueStoreV2(f.Client, f.logger)
 }
 
-func (f *Factory) NewNexusIncomingServiceStore() (p.NexusIncomingServiceStore, error) {
+func (f *Factory) NewNexusEndpointStore() (p.NexusEndpointStore, error) {
 	return NewNexusEndpointStore(f.Client, f.logger)
 }
 

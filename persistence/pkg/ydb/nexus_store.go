@@ -33,7 +33,7 @@ const (
 func NewNexusEndpointStore(
 	client *conn.Client,
 	logger log.Logger,
-) (p.NexusIncomingServiceStore, error) {
+) (p.NexusEndpointStore, error) {
 	return &NexusEndpointStore{
 		client: client,
 		logger: logger,
@@ -47,7 +47,7 @@ func (s *NexusEndpointStore) GetName() string {
 	return ydbPersistenceName
 }
 
-func (s *NexusEndpointStore) CreateOrUpdateNexusIncomingService(ctx context.Context, request *p.InternalCreateOrUpdateNexusIncomingServiceRequest) error {
+func (s *NexusEndpointStore) CreateOrUpdateNexusEndpoint(ctx context.Context, request *p.InternalCreateOrUpdateNexusEndpointRequest) error {
 	declare := `
 DECLARE $partition_status_type AS Int32;
 DECLARE $table_version_id AS String;
@@ -65,7 +65,7 @@ DISCARD SELECT $table_expected_version, $endpoint_expected_version;
 `
 
 	var endpointTemplate string
-	if request.Service.Version == 0 {
+	if request.Endpoint.Version == 0 {
 		endpointTemplate = `
 INSERT INTO nexus_endpoints(type, id, data, data_encoding, version)
 VALUES($endpoint_type, $endpoint_id, $endpoint_data, $endpoint_data_encoding, $endpoint_new_version)
@@ -115,27 +115,27 @@ WHERE type = $partition_status_type AND id = $table_version_id
 		table.ValueParam("$table_new_version", types.Int64Value(request.LastKnownTableVersion+1)),
 		// endpoint
 		table.ValueParam("$endpoint_type", types.Int32Value(rowTypeNexusEndpoint)),
-		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.Service.ServiceID))),
-		table.ValueParam("$endpoint_expected_version", types.Int64Value(request.Service.Version)),
-		table.ValueParam("$endpoint_new_version", types.Int64Value(request.Service.Version+1)),
-		table.ValueParam("$endpoint_data", types.BytesValue(request.Service.Data.Data)),
-		table.ValueParam("$endpoint_data_encoding", s.client.NewEncodingTypeValue(request.Service.Data.EncodingType)),
+		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.Endpoint.ID))),
+		table.ValueParam("$endpoint_expected_version", types.Int64Value(request.Endpoint.Version)),
+		table.ValueParam("$endpoint_new_version", types.Int64Value(request.Endpoint.Version+1)),
+		table.ValueParam("$endpoint_data", types.BytesValue(request.Endpoint.Data.Data)),
+		table.ValueParam("$endpoint_data_encoding", s.client.NewEncodingTypeValue(request.Endpoint.Data.EncodingType)),
 	)
 
 	err := s.client.Write(ctx, template, params, table.WithIdempotent())
 	if err != nil {
 		if conn.IsPreconditionFailedAndContains(err, "ENDPOINT_VERSION_MISMATCH") || conn.IsPreconditionFailedAndContains(err, "Conflict with existing key") {
-			return p.ErrNexusIncomingServiceVersionConflict
+			return p.ErrNexusEndpointVersionConflict
 		} else if conn.IsPreconditionFailedAndContains(err, "TABLE_VERSION_MISMATCH") {
 			return p.ErrNexusTableVersionConflict
 		}
-		return conn.ConvertToTemporalError("CreateOrUpdateNexusIncomingService", err)
+		return conn.ConvertToTemporalError("CreateOrUpdateNexusEndpoint", err)
 	}
 
 	return nil
 }
 
-func (s *NexusEndpointStore) DeleteNexusIncomingService(ctx context.Context, request *p.DeleteNexusIncomingServiceRequest) error {
+func (s *NexusEndpointStore) DeleteNexusEndpoint(ctx context.Context, request *p.DeleteNexusEndpointRequest) error {
 	template := s.client.AddQueryPrefix(`
 DECLARE $partition_status_type AS Int32;
 DECLARE $table_version_id AS String;
@@ -173,26 +173,26 @@ WHERE type = $endpoint_type AND id = $endpoint_id
 		table.ValueParam("$table_new_version", types.Int64Value(request.LastKnownTableVersion+1)),
 		// endpoint
 		table.ValueParam("$endpoint_type", types.Int32Value(rowTypeNexusEndpoint)),
-		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.ServiceID))),
+		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.ID))),
 	)
 
 	err := s.client.Write(ctx, template, params, table.WithIdempotent())
 	if err != nil {
 		if conn.IsPreconditionFailedAndContains(err, "ENDPOINT_DOES_NOT_EXIST") {
-			return p.ErrNexusIncomingServiceNotFound
+			return serviceerror.NewNotFound(fmt.Sprintf("nexus endpoint not found for ID: %v", request.ID))
 		} else if conn.IsPreconditionFailedAndContains(err, "TABLE_VERSION_MISMATCH") {
 			return p.ErrNexusTableVersionConflict
 		}
-		return conn.ConvertToTemporalError("DeleteNexusIncomingService", err)
+		return conn.ConvertToTemporalError("DeleteNexusEndpoint", err)
 	}
 
 	return nil
 }
 
-func (s *NexusEndpointStore) GetNexusIncomingService(ctx context.Context, request *p.GetNexusIncomingServiceRequest) (resp *p.InternalNexusIncomingService, err error) {
+func (s *NexusEndpointStore) GetNexusEndpoint(ctx context.Context, request *p.GetNexusEndpointRequest) (resp *p.InternalNexusEndpoint, err error) {
 	defer func() {
 		if err != nil {
-			err = conn.ConvertToTemporalError("GetNexusIncomingService", err)
+			err = conn.ConvertToTemporalError("GetNexusEndpoint", err)
 		}
 	}()
 
@@ -208,12 +208,12 @@ LIMIT 1
 
 	params := table.NewQueryParameters(
 		table.ValueParam("$endpoint_type", types.Int32Value(rowTypeNexusEndpoint)),
-		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.ServiceID))),
+		table.ValueParam("$endpoint_id", types.BytesValue([]byte(request.ID))),
 	)
 
 	res, err := s.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), params, table.WithIdempotent())
 	if err != nil {
-		return nil, conn.ConvertToTemporalError("GetNexusIncomingService", err)
+		return nil, conn.ConvertToTemporalError("GetNexusEndpoint", err)
 	}
 
 	defer func() {
@@ -229,12 +229,12 @@ LIMIT 1
 
 	if !res.NextRow() {
 		return nil, conn.WrapErrorAsRootCause(
-			serviceerror.NewNotFound(fmt.Sprintf("Nexus incoming service with ID `%v` not found", request.ServiceID)),
+			serviceerror.NewNotFound(fmt.Sprintf("Nexus incoming service with ID `%v` not found", request.ID)),
 		)
 	}
 
-	resp = &p.InternalNexusIncomingService{
-		ServiceID: request.ServiceID,
+	resp = &p.InternalNexusEndpoint{
+		ID: request.ID,
 	}
 	var data []byte
 	var encodingType conn.EncodingTypeRaw
@@ -252,14 +252,14 @@ LIMIT 1
 	return resp, nil
 }
 
-func (s *NexusEndpointStore) ListNexusIncomingServices(ctx context.Context, request *p.ListNexusIncomingServicesRequest) (resp *p.InternalListNexusIncomingServicesResponse, err error) {
+func (s *NexusEndpointStore) ListNexusEndpoints(ctx context.Context, request *p.ListNexusEndpointsRequest) (resp *p.InternalListNexusEndpointsResponse, err error) {
 	defer func() {
 		if err != nil {
-			err = conn.ConvertToTemporalError("ListNexusIncomingServices", err)
+			err = conn.ConvertToTemporalError("ListNexusEndpoints", err)
 		}
 	}()
 
-	var token tokens.NexusIncomingServicesPageToken
+	var token tokens.NexusEndpointsPageToken
 	token.Deserialize(request.NextPageToken)
 
 	template := s.client.AddQueryPrefix(`
@@ -289,13 +289,13 @@ LIMIT $page_size
 		table.ValueParam("$table_version_id", types.StringValueFromString(tableVersionEndpointID)),
 		// endpoint
 		table.ValueParam("$endpoint_type", types.Int32Value(rowTypeNexusEndpoint)),
-		table.ValueParam("$endpoint_last_seen_id", types.StringValueFromString(token.LastSeenServiceID)),
+		table.ValueParam("$endpoint_last_seen_id", types.StringValueFromString(token.LastSeenEndpointID)),
 		table.ValueParam("$page_size", types.Uint64Value(uint64(request.PageSize))),
 	)
 
 	res, err := s.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), params, table.WithIdempotent())
 	if err != nil {
-		return nil, conn.ConvertToTemporalError("ListNexusIncomingServices", err)
+		return nil, conn.ConvertToTemporalError("ListNexusEndpoints", err)
 	}
 
 	defer func() {
@@ -310,7 +310,7 @@ LIMIT $page_size
 	}
 
 	if !res.NextRow() {
-		return &p.InternalListNexusIncomingServicesResponse{}, nil
+		return &p.InternalListNexusEndpointsResponse{}, nil
 	}
 
 	var tableVersion int64
@@ -331,37 +331,37 @@ LIMIT $page_size
 		return nil, err
 	}
 
-	var services []p.InternalNexusIncomingService
+	var endpoints []p.InternalNexusEndpoint
 	for res.NextRow() {
-		service := p.InternalNexusIncomingService{}
+		var endpoint p.InternalNexusEndpoint
 		var data []byte
 		var encodingType conn.EncodingTypeRaw
 		err = res.ScanNamed(
-			named.OptionalWithDefault("id", &service.ServiceID),
-			named.OptionalWithDefault("version", &service.Version),
+			named.OptionalWithDefault("id", &endpoint.ID),
+			named.OptionalWithDefault("version", &endpoint.Version),
 			named.OptionalWithDefault("data", &data),
 			named.OptionalWithDefault("data_encoding", &encodingType),
 		)
 		if err != nil {
 			return nil, err
 		}
-		service.Data = p.NewDataBlob(data, enumspb.EncodingType(encodingType).String())
-		services = append(services, service)
+		endpoint.Data = p.NewDataBlob(data, enumspb.EncodingType(encodingType).String())
+		endpoints = append(endpoints, endpoint)
 	}
 
 	var nextPageToken []byte
-	if len(services) == request.PageSize {
-		token := tokens.NexusIncomingServicesPageToken{
-			LastSeenServiceID: services[len(services)-1].ServiceID,
+	if len(endpoints) == request.PageSize {
+		token := tokens.NexusEndpointsPageToken{
+			LastSeenEndpointID: endpoints[len(endpoints)-1].ID,
 		}
 		nextPageToken = token.Serialize()
 	}
 
-	return &p.InternalListNexusIncomingServicesResponse{
+	return &p.InternalListNexusEndpointsResponse{
 		TableVersion:  tableVersion,
 		NextPageToken: nextPageToken,
-		Services:      services,
+		Endpoints:     endpoints,
 	}, nil
 }
 
-var _ p.NexusIncomingServiceStore = (*NexusEndpointStore)(nil)
+var _ p.NexusEndpointStore = (*NexusEndpointStore)(nil)
