@@ -5,7 +5,7 @@ go 1.23.8
 require (
 	github.com/pborman/uuid v1.2.1
 	github.com/pressly/goose/v3 v3.24.2
-	github.com/prometheus/client_golang v1.20.5
+	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/cobra v1.9.1
 	github.com/urfave/cli/v2 v2.27.5
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20241112172322-ea1f63298f77
@@ -232,8 +232,6 @@ replace github.com/temporalio/features/harness/go => github.com/temporalio/featu
 replace github.com/temporalio/omes => github.com/temporalio/omes v0.0.0-20240701113332-211647aa9dae
 
 replace github.com/aleroyer/rsyslog_exporter => github.com/prometheus-community/rsyslog_exporter v1.1.0
-
-replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.20.5
 
 replace github.com/prometheus/client_model => github.com/prometheus/client_model v0.6.1
 
