@@ -3,6 +3,7 @@ module github.com/yandex/temporal-over-ydb
 go 1.23.8
 
 require (
+	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/pborman/uuid v1.2.1
 	github.com/pressly/goose/v3 v3.24.2
 	github.com/prometheus/client_golang v1.21.1
@@ -86,7 +87,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v2.0.1+incompatible // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
-	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/nexus-rpc/sdk-go v0.0.10 // indirect

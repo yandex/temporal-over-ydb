@@ -124,7 +124,7 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 
 	balancerConfig := balancers.RandomChoice()
 	if cfg.PreferLocalDC {
-		balancerConfig = balancers.PreferLocalDC(balancerConfig)
+		balancerConfig = balancers.PreferNearestDCWithFallBack(balancerConfig)
 	}
 	opts = append(opts, ydb.WithBalancer(balancerConfig))
 

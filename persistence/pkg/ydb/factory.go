@@ -2,10 +2,9 @@ package ydb
 
 import (
 	"context"
-	"errors"
-	"strconv"
 	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
@@ -35,57 +34,18 @@ type (
 	}
 )
 
-func readBoolOption(options map[string]any, key string, defaultValue bool) (bool, error) {
-	if valueStr, ok := options["use_ssl"].(string); ok {
-		value, err := strconv.ParseBool(valueStr)
-		if err != nil {
-			return false, errors.New("invalid value for use_ssl option")
-		}
-		return value, nil
-	} else if value, ok := options["use_ssl"].(bool); ok {
-		return value, nil
-	} else {
-		return defaultValue, nil
-	}
-}
-
 func OptionsToYDBConfig(options map[string]any) (ydbconfig.Config, error) {
 	cfg := ydbconfig.Config{}
-
-	if endpoint, ok := options["endpoint"].(string); ok {
-		cfg.Endpoint = endpoint
-	} else {
-		return ydbconfig.Config{}, errors.New("missing required option: endpoint")
+	if err := mapstructure.WeakDecode(options, &cfg); err != nil {
+		return ydbconfig.Config{}, err
 	}
-
-	if database, ok := options["database"].(string); ok {
-		cfg.Database = database
-	} else {
-		return ydbconfig.Config{}, errors.New("missing required option: database")
-	}
-
-	if folder, ok := options["folder"].(string); ok {
-		cfg.Folder = folder
-	} else {
-		return ydbconfig.Config{}, errors.New("missing required option: folder")
-	}
-
-	if token, ok := options["token"].(string); ok {
-		cfg.Token = token
-	}
-
-	if sessionPoolSizeLimit, ok := options["session_pool_size_limit"].(int); ok {
-		cfg.SessionPoolSizeLimit = sessionPoolSizeLimit
-	}
-
-	useSSL, err := readBoolOption(options, "use_ssl", false)
-	if err != nil {
-		return ydbconfig.Config{}, errors.New("invalid value for use_ssl option")
-	}
-	cfg.UseSSL = useSSL
 
 	// YDB-only persistence always uses old types
 	cfg.UseOldTypes = true
+
+	if err := cfg.Validate(); err != nil {
+		return ydbconfig.Config{}, err
+	}
 
 	return cfg, nil
 }
