@@ -122,7 +122,9 @@ func (d *ShardStore) UpdateShard(ctx context.Context, request *p.InternalUpdateS
 }
 
 func (d *ShardStore) AssertShardOwnership(ctx context.Context, request *p.AssertShardOwnershipRequest) error {
-	return nil
+	transaction := d.tf.NewTransaction(request.ShardID)
+	transaction.AssertShard(false, request.RangeID)
+	return transaction.Execute(ctx)
 }
 
 func (d *ShardStore) GetName() string {
