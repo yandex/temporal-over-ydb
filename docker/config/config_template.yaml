@@ -20,6 +20,11 @@ persistence:
                 keyspace: "{{ default .Env.KEYSPACE "temporal" }}"
                 user: "{{ default .Env.CASSANDRA_USER "" }}"
                 password: "{{ default .Env.CASSANDRA_PASSWORD "" }}"
+                {{- if .Env.CASSANDRA_ALLOWED_AUTHENTICATORS }}
+                allowedAuthenticators: {{ range split .Env.CASSANDRA_ALLOWED_AUTHENTICATORS "," }}
+                    - {{trim .}}
+                  {{- end }}
+                {{- end }}
                 port: {{ default .Env.CASSANDRA_PORT "9042" }}
                 maxConns: {{ default .Env.CASSANDRA_MAX_CONNS "20" }}
                 tls:
@@ -93,8 +98,7 @@ persistence:
                     keyFile: {{ default .Env.SQL_CERT_KEY "" }}
                     enableHostVerification: {{ default .Env.SQL_HOST_VERIFICATION "false" }}
                     serverName: {{ default .Env.SQL_HOST_NAME "" }}
-        {{- else if eq $db "postgresql" "postgres" "postgres12" "postgres12_pgx" }}
-        {{- $db := replace $db "postgresql" "postgres" 1 }}
+        {{- else if eq $db "postgres12" "postgres12_pgx" }}
         default:
             sql:
                 pluginName: "{{ $db }}"
@@ -150,20 +154,6 @@ persistence:
                     folder: "/{{ default .Env.YDB_TABLE_PATH "temporal" }}"
                     token: "{{ default .Env.YDB_TOKEN "" }}"
                     session_pool_size_limit: {{ default .Env.SQL_MAX_CONNS "20" }}
-        visibility:
-            customDatastore:
-                {{ $visibility_seeds_default := default .Env.YDB_SEEDS "" }}
-                {{ $visibility_seeds := default .Env.VISIBILITY_YDB_SEEDS $visibility_seeds_default }}
-                {{ $visibility_port_default := default .Env.YDB_PORT "2136" }}
-                {{ $visibility_port := default .Env.VISIBILITY_YDB_PORT $visibility_port_default }}
-                name: "visibility"
-                options:
-                    endpoint: "{{ $visibility_seeds }}:{{ $visibility_port }}"
-                    use_ssl: {{ default .Env.YDB_USE_SSL false }}
-                    database: "/{{ default .Env.YDB_DBNAME "local" }}"
-                    folder: "/{{ default .Env.VISIBILITY_DBNAME "temporal_visibility" }}"
-                    token: "{{ default .Env.YDB_TOKEN "" }}"
-                    session_pool_size_limit: {{ default .Env.SQL_VIS_MAX_CONNS "20" }}
         {{- end }}
         {{- if eq $es "true" }}
         es-visibility:
@@ -289,39 +279,40 @@ global:
         claimMapper: {{ default .Env.TEMPORAL_AUTH_CLAIM_MAPPER "" }}
 
 {{- $temporalGrpcPort := default .Env.FRONTEND_GRPC_PORT "7233" }}
+{{- $temporalHTTPPort := default .Env.FRONTEND_HTTP_PORT "7243" }}
 services:
     frontend:
         rpc:
             grpcPort: {{ $temporalGrpcPort }}
             membershipPort: {{ default .Env.FRONTEND_MEMBERSHIP_PORT "6933" }}
-            bindOnIP: {{ default .Env.BIND_ON_IP "127.0.0.1" }}
-            httpPort: {{ default .Env.FRONTEND_HTTP_PORT "7243" }}
+            bindOnIP: "{{ default .Env.BIND_ON_IP "127.0.0.1" }}"
+            httpPort: {{ $temporalHTTPPort }}
 
     {{- if .Env.USE_INTERNAL_FRONTEND }}
     internal-frontend:
         rpc:
             grpcPort: {{ default .Env.INTERNAL_FRONTEND_GRPC_PORT "7236" }}
             membershipPort: {{ default .Env.INTERNAL_FRONTEND_MEMBERSHIP_PORT "6936" }}
-            bindOnIP: {{ default .Env.BIND_ON_IP "127.0.0.1" }}
+            bindOnIP: "{{ default .Env.BIND_ON_IP "127.0.0.1" }}"
     {{- end }}
 
     matching:
         rpc:
             grpcPort: {{ default .Env.MATCHING_GRPC_PORT "7235" }}
             membershipPort: {{ default .Env.MATCHING_MEMBERSHIP_PORT "6935" }}
-            bindOnIP: {{ default .Env.BIND_ON_IP "127.0.0.1" }}
+            bindOnIP: "{{ default .Env.BIND_ON_IP "127.0.0.1" }}"
 
     history:
         rpc:
             grpcPort: {{ default .Env.HISTORY_GRPC_PORT "7234" }}
             membershipPort: {{ default .Env.HISTORY_MEMBERSHIP_PORT "6934" }}
-            bindOnIP: {{ default .Env.BIND_ON_IP "127.0.0.1" }}
+            bindOnIP: "{{ default .Env.BIND_ON_IP "127.0.0.1" }}"
 
     worker:
         rpc:
             grpcPort: {{ default .Env.WORKER_GRPC_PORT "7239" }}
             membershipPort: {{ default .Env.WORKER_MEMBERSHIP_PORT "6939" }}
-            bindOnIP: {{ default .Env.BIND_ON_IP "127.0.0.1" }}
+            bindOnIP: "{{ default .Env.BIND_ON_IP "127.0.0.1" }}"
 
 clusterMetadata:
     enableGlobalNamespace: false
@@ -334,6 +325,7 @@ clusterMetadata:
             initialFailoverVersion: 1
             rpcName: "frontend"
             rpcAddress: {{ (print "127.0.0.1:" $temporalGrpcPort) }}
+            httpAddress: {{ (print "127.0.0.1:" $temporalHTTPPort) }}
 
 dcRedirectionPolicy:
     policy: "noop"

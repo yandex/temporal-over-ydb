@@ -8,26 +8,3 @@
 a distributed SQL DBMS.
 
 It is still a work in active progress and is not ready for production use.
-
-## How to run tests
-
-Clone and patch Temporal source code:
-```
-git clone https://github.com/temporalio/temporal.git
-cd ./temporal
-git checkout v1.24.3
-```
-
-Run docker-compose:
-```
-cd ./tests
-docker-compose -f ./docker-compose.yml up -d
-```
-
-Run persistence unit tests:
-```
-cd ./tests/persistencetests
-go mod tidy
-YDB_DATABASE=local YDB_ENDPOINT="localhost:2136" YDB_ANONYMOUS_CREDENTIALS=1 go test . -v
-```
-
