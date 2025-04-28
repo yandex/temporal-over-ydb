@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
-	"github.com/ydb-platform/ydb-go-sdk/v3/table/result"
-	"github.com/ydb-platform/ydb-go-sdk/v3/table/result/named"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/types"
 	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
@@ -106,28 +105,24 @@ AND task_id IS NULL
 AND task_category_id IS NULL
 AND task_visibility_ts IS NULL;
 `)
-	res, err := d.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
+	res, err := d.client.Query(ctx, template, table.NewQueryParameters(
 		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
 		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
 		table.ValueParam("$workflow_id", types.UTF8Value(request.WorkflowID)),
 		table.ValueParam("$run_id", d.client.RunIDValue(request.RunID)),
-	), table.WithIdempotent())
+	))
 	if err != nil {
 		return
 	}
 
 	defer func() {
-		err2 := res.Close()
+		err2 := res.Close(ctx)
 		if err == nil {
 			err = err2
 		}
 	}()
 
-	if err = res.NextResultSetErr(ctx); err != nil {
-		return nil, err
-	}
-
-	state, dbRecordVersion, err := d.scanMutableState(res)
+	state, dbRecordVersion, err := d.scanMutableState(ctx, res)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +292,7 @@ func (d *MutableStateStore) ListConcreteExecutions(
 	return nil, serviceerror.NewUnimplemented("ListConcreteExecutions is not implemented")
 }
 
-func (d *MutableStateStore) scanMutableState(res result.Result) (*p.InternalWorkflowMutableState, int64, error) {
+func (d *MutableStateStore) scanMutableState(ctx context.Context, res query.ResultSet) (*p.InternalWorkflowMutableState, int64, error) {
 	var resultDBRecordVersion int64
 
 	state := &p.InternalWorkflowMutableState{
@@ -308,7 +303,11 @@ func (d *MutableStateStore) scanMutableState(res result.Result) (*p.InternalWork
 		SignalInfos:         make(map[int64]*commonpb.DataBlob),
 	}
 
-	for res.NextRow() {
+	for row, err := range res.Rows(ctx) {
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to get row: %w", err)
+		}
+
 		var executionData []byte
 		var executionEncoding string
 		var encodingType conn.EncodingTypeRaw
@@ -350,20 +349,20 @@ func (d *MutableStateStore) scanMutableState(res result.Result) (*p.InternalWork
 			eventEncodingPtr = &eventEncoding
 		}
 		var dbRecordVersion int64
-		if err := res.ScanNamed(
-			named.OptionalWithDefault("next_event_id", &nextEventID),
-			named.OptionalWithDefault("execution", &executionData),
-			named.OptionalWithDefault("execution_encoding", encodingPtr),
-			named.OptionalWithDefault("db_record_version", &dbRecordVersion),
-			named.OptionalWithDefault("execution_state", &stateData),
-			named.OptionalWithDefault("execution_state_encoding", stateEncodingPtr),
-			named.OptionalWithDefault("checksum", &checksumData),
-			named.OptionalWithDefault("checksum_encoding", checksumEncodingPtr),
-			named.OptionalWithDefault("event_type", &eventType),
-			named.OptionalWithDefault("event_id", &eventID),
-			named.OptionalWithDefault("event_name", &eventName),
-			named.OptionalWithDefault("data_encoding", eventEncodingPtr),
-			named.OptionalWithDefault("data", &eventData),
+		if err := row.ScanNamed(
+			query.Named("next_event_id", &nextEventID),
+			query.Named("execution", &executionData),
+			query.Named("execution_encoding", encodingPtr),
+			query.Named("db_record_version", &dbRecordVersion),
+			query.Named("execution_state", &stateData),
+			query.Named("execution_state_encoding", stateEncodingPtr),
+			query.Named("checksum", &checksumData),
+			query.Named("checksum_encoding", checksumEncodingPtr),
+			query.Named("event_type", &eventType),
+			query.Named("event_id", &eventID),
+			query.Named("event_name", &eventName),
+			query.Named("data_encoding", eventEncodingPtr),
+			query.Named("data", &eventData),
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan execution: %w", err)
 		}

@@ -10,6 +10,7 @@ import (
 	ydbmetrics "github.com/ydb-platform/ydb-go-sdk-metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/balancers"
+	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 	"github.com/ydb-platform/ydb-go-sdk/v3/sugar"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/options"
@@ -196,6 +197,19 @@ func (client *Client) Write2(
 		return errDo
 	}
 	return res.Close()
+}
+
+func (client *Client) Query(
+	ctx context.Context,
+	sql string,
+	params *table.QueryParameters,
+) (rs query.ClosableResultSet, err error) {
+	return client.DB.Query().QueryResultSet(ctx,
+		sql,
+		query.WithParameters(params),
+		query.WithTxControl(query.SnapshotReadOnlyTxControl()),
+		query.WithIdempotent(),
+	)
 }
 
 func (client *Client) Do(
