@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result/named"
@@ -236,7 +237,13 @@ func (h *HistoryStore) upsertHistoryConcurrently(ctx context.Context, nodes []ty
 			))
 		})
 	}
-	return eg.Wait()
+	err := eg.Wait()
+	if err != nil && ydb.IsTimeoutError(err) {
+		return conn.WrapErrorAsRootCause(&p.AppendHistoryTimeoutError{
+			Msg: err.Error(),
+		})
+	}
+	return err
 }
 
 func (h *HistoryStore) prepareHistoryRows(
