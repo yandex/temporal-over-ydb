@@ -33,10 +33,18 @@ type (
 		Logger log.Logger
 		p.HistoryBranchUtilImpl
 
-		upsertHistoryNodeQ           string
-		upsertHistoryNodeAndTreeQ    string
-		upsertSingleHistoryNodeQuery string
-		upsertSingleHistoryTreeQuery string
+		getHistoryTreeQ                string
+		deleteHistoryNodesQ            string
+		upsertHistoryNodeQ             string
+		upsertHistoryNodeAndTreeQ      string
+		upsertSingleHistoryNodeQuery   string
+		upsertSingleHistoryTreeQuery   string
+		getAllHistoryTreeBranchesQ     string
+		forkHistoryBranchQ             string
+		deleteHistoryBranchQ           string
+		readHistoryBranchQ             string
+		readHistoryBranchReversedQ     string
+		readHistoryBranchMetadataOnlyQ string
 	}
 )
 
@@ -44,6 +52,154 @@ func NewHistoryStore(
 	client *conn.Client,
 	logger log.Logger,
 ) *HistoryStore {
+	getHistoryTreeQ := fmt.Sprintf(`
+DECLARE $tree_id AS %s;
+SELECT branch_id, branch, branch_encoding
+FROM history_tree
+WHERE tree_id = $tree_id;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	deleteHistoryNodesQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $node_id AS int64;
+DECLARE $txn_id AS int64;
+
+DELETE FROM history_node
+WHERE tree_id = $tree_id
+AND branch_id = $branch_id
+AND node_id = $node_id
+AND txn_id = $txn_id;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	forkHistoryBranchQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $branch AS string;
+DECLARE $branch_encoding AS %[2]s;
+
+UPSERT INTO history_tree (tree_id, branch_id, branch, branch_encoding)
+VALUES ($tree_id, $branch_id, $branch, $branch_encoding)
+`,
+		client.HistoryIDType().String(),
+		client.EncodingType().String(),
+	)
+
+	getAllHistoryTreeBranchesQ := fmt.Sprintf(`
+DECLARE $tree_id_gt AS %[1]s;
+DECLARE $branch_id_gt AS %[1]s;
+DECLARE $page_size AS int32;
+
+SELECT tree_id, branch_id, branch, branch_encoding
+FROM history_tree
+WHERE (tree_id, branch_id) > ($tree_id_gt, $branch_id_gt)
+ORDER BY tree_id, branch_id
+LIMIT $page_size;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	deleteHistoryBranchQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $input AS List<Struct<
+tree_id: %[1]s,
+branch_id: %[1]s,
+node_id_gte: int64
+>>;
+
+DELETE FROM history_tree
+WHERE tree_id = $tree_id
+AND branch_id = $branch_id;
+
+$to_delete = (
+SELECT
+history_node.tree_id AS tree_id,
+history_node.branch_id AS branch_id,
+history_node.node_id AS node_id,
+history_node.txn_id AS txn_id
+FROM AS_TABLE($input) AS input
+JOIN history_node
+USING (tree_id, branch_id)
+WHERE history_node.node_id >= input.node_id_gte
+);
+
+DELETE FROM history_node ON SELECT * FROM $to_delete;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	readHistoryBranchMetadataOnlyQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $node_id_gte AS int64;
+DECLARE $node_id_lt AS int64;
+DECLARE $txn_id_gt AS int64;
+DECLARE $page_size AS int32;
+
+SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id
+FROM history_node
+WHERE tree_id = $tree_id
+AND branch_id = $branch_id
+-- make sure it's TableRangesScan for YDB:
+AND node_id >= $node_id_gte
+AND node_id < $node_id_lt
+-- refine the condition later:
+AND ((node_id = $node_id_gte AND txn_id > $txn_id_gt) OR node_id > $node_id_gte)
+ORDER BY tree_id, branch_id, node_id, txn_id
+LIMIT $page_size;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	readHistoryBranchReversedQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $node_id_gte AS int64;
+DECLARE $node_id_lt AS int64;
+DECLARE $txn_id_lt AS int64;
+DECLARE $page_size AS int32;
+
+SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id, data, data_encoding
+FROM history_node
+WHERE tree_id = $tree_id
+AND branch_id = $branch_id
+-- make sure it's TableRangesScan for YDB:
+AND node_id >= $node_id_gte
+AND node_id < $node_id_lt
+-- refine the condition later:
+AND ((node_id = $node_id_gte AND txn_id < $txn_id_lt) OR node_id < $node_id_lt)
+ORDER BY tree_id, branch_id DESC, node_id DESC, txn_id DESC
+LIMIT $page_size;
+`,
+		client.HistoryIDType().String(),
+	)
+
+	readHistoryBranchQ := fmt.Sprintf(`
+DECLARE $tree_id AS %[1]s;
+DECLARE $branch_id AS %[1]s;
+DECLARE $node_id_gte AS int64;
+DECLARE $node_id_lt AS int64;
+DECLARE $txn_id_gt AS int64;
+DECLARE $page_size AS int32;
+
+SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id, data, data_encoding
+FROM history_node
+WHERE tree_id = $tree_id
+AND branch_id = $branch_id
+AND node_id >= $node_id_gte
+AND node_id < $node_id_lt
+AND ((node_id = $node_id_gte AND txn_id > $txn_id_gt) OR node_id > $node_id_gte)
+ORDER BY tree_id, branch_id, node_id, txn_id
+LIMIT $page_size;
+`,
+		client.HistoryIDType().String(),
+	)
+
 	treeRowDecl := fmt.Sprintf("DECLARE $%s AS %s;", "tree_row_to_add",
 		types.Struct(
 			types.StructField("tree_id", client.HistoryIDType()),
@@ -89,24 +245,32 @@ VALUES ($tree_row_to_add.tree_id, $tree_row_to_add.branch_id, $tree_row_to_add.b
 `
 
 	return &HistoryStore{
-		Client:                       client,
-		Logger:                       logger,
-		upsertHistoryNodeQ:           upsertHistoryNodeQ,
-		upsertHistoryNodeAndTreeQ:    upsertHistoryNodeAndTreeQ,
-		upsertSingleHistoryNodeQuery: upsertSingleHistoryNodeQuery,
-		upsertSingleHistoryTreeQuery: upsertSingleHistoryTreeQuery,
+		Client:                         client,
+		Logger:                         logger,
+		getHistoryTreeQ:                client.AddQueryPrefix(getHistoryTreeQ),
+		deleteHistoryNodesQ:            client.AddQueryPrefix(deleteHistoryNodesQ),
+		upsertHistoryNodeQ:             client.AddQueryPrefix(upsertHistoryNodeQ),
+		upsertHistoryNodeAndTreeQ:      client.AddQueryPrefix(upsertHistoryNodeAndTreeQ),
+		upsertSingleHistoryNodeQuery:   client.AddQueryPrefix(upsertSingleHistoryNodeQuery),
+		upsertSingleHistoryTreeQuery:   client.AddQueryPrefix(upsertSingleHistoryTreeQuery),
+		getAllHistoryTreeBranchesQ:     client.AddQueryPrefix(getAllHistoryTreeBranchesQ),
+		forkHistoryBranchQ:             client.AddQueryPrefix(forkHistoryBranchQ),
+		deleteHistoryBranchQ:           client.AddQueryPrefix(deleteHistoryBranchQ),
+		readHistoryBranchQ:             client.AddQueryPrefix(readHistoryBranchQ),
+		readHistoryBranchReversedQ:     client.AddQueryPrefix(readHistoryBranchReversedQ),
+		readHistoryBranchMetadataOnlyQ: client.AddQueryPrefix(readHistoryBranchMetadataOnlyQ),
 	}
 }
 
 func (h *HistoryStore) upsertHistory(ctx context.Context, client *conn.Client, nodeRow types.Value, treeRow types.Value) error {
 	var err error
 	if treeRow != nil {
-		err = client.Write(ctx, client.AddQueryPrefix(h.upsertHistoryNodeAndTreeQ), table.NewQueryParameters(
+		err = client.Write(ctx, h.upsertHistoryNodeAndTreeQ, table.NewQueryParameters(
 			table.ValueParam("$tree_row_to_add", treeRow),
 			table.ValueParam("$node_row_to_add", nodeRow),
 		))
 	} else {
-		err = client.Write(ctx, client.AddQueryPrefix(h.upsertHistoryNodeQ), table.NewQueryParameters(
+		err = client.Write(ctx, h.upsertHistoryNodeQ, table.NewQueryParameters(
 			table.ValueParam("$node_row_to_add", nodeRow),
 		))
 	}
@@ -220,19 +384,17 @@ func (h *HistoryStore) AppendHistoryNodesForConflictResolveWorkflowExecutionRequ
 }
 
 func (h *HistoryStore) upsertHistoryConcurrently(ctx context.Context, nodes []types.Value, trees []types.Value) error {
-	treeQuery := h.Client.AddQueryPrefix(h.upsertSingleHistoryTreeQuery)
-	nodeQuery := h.Client.AddQueryPrefix(h.upsertSingleHistoryNodeQuery)
 	eg, ctx := errgroup.WithContext(ctx)
 	for _, treeRow := range trees {
 		eg.Go(func() error {
-			return h.Client.Write(ctx, treeQuery, table.NewQueryParameters(
+			return h.Client.Write(ctx, h.upsertSingleHistoryTreeQuery, table.NewQueryParameters(
 				table.ValueParam("$tree_row_to_add", treeRow),
 			))
 		})
 	}
 	for _, nodeRow := range nodes {
 		eg.Go(func() error {
-			return h.Client.Write(ctx, nodeQuery, table.NewQueryParameters(
+			return h.Client.Write(ctx, h.upsertSingleHistoryNodeQuery, table.NewQueryParameters(
 				table.ValueParam("$node_row_to_add", nodeRow),
 			))
 		})
@@ -287,28 +449,7 @@ func (h *HistoryStore) DeleteHistoryNodes(
 		})
 	}
 
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `
-DECLARE $tree_id AS string;
-DECLARE $branch_id AS string;`
-	} else {
-		decl = `
-DECLARE $tree_id AS utf8;
-DECLARE $branch_id AS utf8;`
-	}
-
-	template := h.Client.AddQueryPrefix(decl + `
-DECLARE $node_id AS int64;
-DECLARE $txn_id AS int64;
-
-DELETE FROM history_node
-WHERE tree_id = $tree_id
-AND branch_id = $branch_id
-AND node_id = $node_id
-AND txn_id = $txn_id;
-`)
-	return h.Client.Write(ctx, template, table.NewQueryParameters(
+	return h.Client.Write(ctx, h.deleteHistoryNodesQ, table.NewQueryParameters(
 		table.ValueParam("$tree_id", h.Client.HistoryIDValue(branchInfo.TreeId)),
 		table.ValueParam("$branch_id", h.Client.HistoryIDValue(branchInfo.BranchId)),
 		table.ValueParam("$node_id", types.Int64Value(nodeID)),
@@ -330,74 +471,13 @@ func (h *HistoryStore) ReadHistoryBranch(
 		return nil, err
 	}
 
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `
-DECLARE $tree_id AS string;
-DECLARE $branch_id AS string;`
+	var query string
+	if request.ReverseOrder {
+		query = h.readHistoryBranchReversedQ
+	} else if request.MetadataOnly {
+		query = h.readHistoryBranchMetadataOnlyQ
 	} else {
-		decl = `
-DECLARE $tree_id AS utf8;
-DECLARE $branch_id AS utf8;`
-	}
-
-	var template string
-	if request.MetadataOnly {
-		template = decl + `
-DECLARE $node_id_gte AS int64;
-DECLARE $node_id_lt AS int64;
-DECLARE $txn_id_gt AS int64;
-DECLARE $page_size AS int32;
-
-SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id
-FROM history_node
-WHERE tree_id = $tree_id
-AND branch_id = $branch_id
--- make sure it's TableRangesScan for YDB:
-AND node_id >= $node_id_gte
-AND node_id < $node_id_lt
--- refine the condition later:
-AND ((node_id = $node_id_gte AND txn_id > $txn_id_gt) OR node_id > $node_id_gte)
-ORDER BY tree_id, branch_id, node_id, txn_id
-LIMIT $page_size;
-`
-
-	} else if request.ReverseOrder {
-		template = decl + `
-DECLARE $node_id_gte AS int64;
-DECLARE $node_id_lt AS int64;
-DECLARE $txn_id_lt AS int64;
-DECLARE $page_size AS int32;
-
-SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id, data, data_encoding
-FROM history_node
-WHERE tree_id = $tree_id
-AND branch_id = $branch_id
--- make sure it's TableRangesScan for YDB:
-AND node_id >= $node_id_gte
-AND node_id < $node_id_lt
--- refine the condition later:
-AND ((node_id = $node_id_gte AND txn_id < $txn_id_lt) OR node_id < $node_id_lt)
-ORDER BY tree_id, branch_id DESC, node_id DESC, txn_id DESC
-LIMIT $page_size;
-`
-	} else {
-		template = decl + `
-DECLARE $node_id_gte AS int64;
-DECLARE $node_id_lt AS int64;
-DECLARE $txn_id_gt AS int64;
-DECLARE $page_size AS int32;
-
-SELECT tree_id, branch_id, node_id, prev_txn_id, txn_id, data, data_encoding
-FROM history_node
-WHERE tree_id = $tree_id
-AND branch_id = $branch_id
-AND node_id >= $node_id_gte
-AND node_id < $node_id_lt
-AND ((node_id = $node_id_gte AND txn_id > $txn_id_gt) OR node_id > $node_id_gte)
-ORDER BY tree_id, branch_id, node_id, txn_id
-LIMIT $page_size;
-`
+		query = h.readHistoryBranchQ
 	}
 
 	var token tokens.HistoryNodePageToken
@@ -436,7 +516,7 @@ LIMIT $page_size;
 		params.Add(table.ValueParam("$txn_id_gt", types.Int64Value(-minTxnID)))
 	}
 
-	res, err := h.Client.Do(ctx, h.Client.AddQueryPrefix(template), conn.OnlineReadOnlyTxControl(), params, table.WithIdempotent())
+	res, err := h.Client.Do(ctx, query, conn.OnlineReadOnlyTxControl(), params, table.WithIdempotent())
 	if err != nil {
 		return nil, err
 	}
@@ -495,26 +575,8 @@ func (h *HistoryStore) ForkHistoryBranch(
 		return fmt.Errorf("NewBranchID UUID cast failed: %w", err)
 	}
 
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `
-DECLARE $tree_id AS string;
-DECLARE $branch_id AS string;`
-	} else {
-		decl = `
-DECLARE $tree_id AS utf8;
-DECLARE $branch_id AS utf8;`
-	}
-
-	template := h.Client.AddQueryPrefix(decl + `
-DECLARE $branch AS string;
-DECLARE $branch_encoding AS ` + h.Client.EncodingType().String() + `;
-
-UPSERT INTO history_tree (tree_id, branch_id, branch, branch_encoding)
-VALUES ($tree_id, $branch_id, $branch, $branch_encoding)
-`)
 	treeInfoBlob := request.TreeInfo
-	return h.Client.Write(ctx, template, table.NewQueryParameters(
+	return h.Client.Write(ctx, h.forkHistoryBranchQ, table.NewQueryParameters(
 		table.ValueParam("$tree_id", h.Client.HistoryIDValue(request.ForkBranchInfo.TreeId)),
 		table.ValueParam("$branch_id", h.Client.HistoryIDValue(request.NewBranchID)),
 		table.ValueParam("$branch", types.BytesValue(treeInfoBlob.Data)),
@@ -527,46 +589,6 @@ func (h *HistoryStore) DeleteHistoryBranch(
 	ctx context.Context,
 	request *p.InternalDeleteHistoryBranchRequest,
 ) error {
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `
-DECLARE $tree_id AS string;
-DECLARE $branch_id AS string;
-DECLARE $input AS List<Struct<
-tree_id: string,
-branch_id: string,
-node_id_gte: int64
->>;`
-	} else {
-		decl = `
-DECLARE $tree_id AS utf8;
-DECLARE $branch_id AS utf8;
-DECLARE $input AS List<Struct<
-tree_id: utf8,
-branch_id: utf8,
-node_id_gte: int64
->>;`
-	}
-
-	template := h.Client.AddQueryPrefix(decl + `
-DELETE FROM history_tree
-WHERE tree_id = $tree_id
-AND branch_id = $branch_id;
-
-$to_delete = (
-SELECT
-history_node.tree_id AS tree_id,
-history_node.branch_id AS branch_id,
-history_node.node_id AS node_id,
-history_node.txn_id AS txn_id
-FROM AS_TABLE($input) AS input
-JOIN history_node
-USING (tree_id, branch_id)
-WHERE history_node.node_id >= input.node_id_gte
-);
-
-DELETE FROM history_node ON SELECT * FROM $to_delete;
-`)
 	input := make([]types.Value, 0, len(request.BranchRanges))
 	for _, br := range request.BranchRanges {
 		input = append(input, types.StructValue(
@@ -575,7 +597,7 @@ DELETE FROM history_node ON SELECT * FROM $to_delete;
 			types.StructFieldValue("node_id_gte", types.Int64Value(br.BeginNodeId)),
 		))
 	}
-	err := h.Client.Write(ctx, template, table.NewQueryParameters(
+	err := h.Client.Write(ctx, h.deleteHistoryBranchQ, table.NewQueryParameters(
 		table.ValueParam("$tree_id", h.Client.HistoryIDValue(request.BranchInfo.TreeId)),
 		table.ValueParam("$branch_id", h.Client.HistoryIDValue(request.BranchInfo.BranchId)),
 		table.ValueParam("$input", types.ListValue(input...)),
@@ -596,28 +618,7 @@ func (h *HistoryStore) GetAllHistoryTreeBranches(
 		return nil, err
 	}
 
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `
-DECLARE $tree_id_gt AS string;
-DECLARE $branch_id_gt AS string;`
-	} else {
-		decl = `
-DECLARE $tree_id_gt AS utf8;
-DECLARE $branch_id_gt AS utf8;`
-	}
-
-	template := h.Client.AddQueryPrefix(decl + `
-DECLARE $page_size AS int32;
-
-SELECT tree_id, branch_id, branch, branch_encoding
-FROM history_tree
-WHERE (tree_id, branch_id) > ($tree_id_gt, $branch_id_gt)
-ORDER BY tree_id, branch_id
-LIMIT $page_size;
-`)
-
-	res, err := h.Client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
+	res, err := h.Client.Do(ctx, h.getAllHistoryTreeBranchesQ, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
 		table.ValueParam("$tree_id_gt", h.Client.HistoryIDValue(token.TreeID)),
 		table.ValueParam("$branch_id_gt", h.Client.HistoryIDValue(token.BranchID)),
 		table.ValueParam("$page_size", types.Int32Value(int32(request.PageSize))),
@@ -680,20 +681,7 @@ func (h *HistoryStore) GetHistoryTreeContainingBranch(
 		return nil, fmt.Errorf("treeId UUID cast failed: %v", err)
 	}
 
-	var decl string
-	if h.Client.UseBytesForHistoryIDs() {
-		decl = `DECLARE $tree_id AS string;`
-	} else {
-		decl = `DECLARE $tree_id AS utf8;`
-	}
-
-	template := h.Client.AddQueryPrefix(decl + `
-SELECT branch_id, branch, branch_encoding
-FROM history_tree
-WHERE tree_id = $tree_id;
-`)
-
-	res, err := h.Client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
+	res, err := h.Client.Do(ctx, h.getHistoryTreeQ, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
 		table.ValueParam("$tree_id", h.Client.HistoryIDValue(treeID)),
 	), table.WithIdempotent())
 	if err != nil {
