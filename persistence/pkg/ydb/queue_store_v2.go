@@ -71,7 +71,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 		DECLARE $queue_partition AS Int32;
 		DECLARE $message_id AS Int64;
 		DECLARE $message_payload AS String;
-		DECLARE $message_encoding AS ` + s.client.EncodingType().String() + `;
+		DECLARE $message_encoding AS Int16;
 
 		INSERT INTO queue_v2_message (queue_type, queue_name, queue_partition, message_id, message_payload, message_encoding)
 		VALUES ($queue_type, $queue_name, $queue_partition, $message_id, $message_payload, $message_encoding);
@@ -83,7 +83,7 @@ func (s *QueueStoreV2) EnqueueMessage(ctx context.Context, request *persistence.
 		table.ValueParam("$queue_partition", types.Int32Value(0)),
 		table.ValueParam("$message_id", types.Int64Value(messageID)),
 		table.ValueParam("$message_payload", types.BytesValue(request.Blob.Data)),
-		table.ValueParam("$message_encoding", s.client.EncodingTypeValue(request.Blob.EncodingType)),
+		table.ValueParam("$message_encoding", s.client.NewEncodingTypeValue(request.Blob.EncodingType)),
 	))
 	if err != nil {
 		if ydb.IsOperationErrorAlreadyExistsError(err) || conn.IsPreconditionFailedAndContains(err, "Conflict with existing key") {
@@ -181,7 +181,7 @@ func (s *QueueStoreV2) CreateQueue(ctx context.Context, request *persistence.Int
 DECLARE $queue_type AS Int32;
 DECLARE $queue_name AS Utf8;
 DECLARE $metadata_payload AS String;
-DECLARE $metadata_encoding AS ` + s.client.EncodingType().String() + `;
+DECLARE $metadata_encoding AS Int16; 
 DECLARE $version AS Int64;
 
 INSERT INTO queue_v2 (queue_type, queue_name, metadata_payload, metadata_encoding, version)
@@ -191,7 +191,7 @@ VALUES ($queue_type, $queue_name, $metadata_payload, $metadata_encoding, $versio
 		table.ValueParam("$queue_type", types.Int32Value(int32(request.QueueType))),
 		table.ValueParam("$queue_name", types.UTF8Value(request.QueueName)),
 		table.ValueParam("$metadata_payload", types.BytesValue(bytes)),
-		table.ValueParam("$metadata_encoding", s.client.EncodingTypeValue(enumspb.ENCODING_TYPE_PROTO3)),
+		table.ValueParam("$metadata_encoding", s.client.NewEncodingTypeValue(enumspb.ENCODING_TYPE_PROTO3)),
 		table.ValueParam("$version", types.Int64Value(0)),
 	))
 	if err != nil {
@@ -336,30 +336,20 @@ LIMIT $page_size;
 		var (
 			queueName     string
 			metadataBytes []byte
-			encoding      string
 			encodingType  conn.EncodingTypeRaw
 			version       int64
 		)
 
-		var encodingScanner named.Value
-		if s.client.UseIntForEncoding() {
-			encodingScanner = named.OptionalWithDefault("metadata_encoding", &encodingType)
-		} else {
-			encodingScanner = named.OptionalWithDefault("metadata_encoding", &encoding)
-		}
-
 		err = res.ScanNamed(
 			named.OptionalWithDefault("queue_name", &queueName),
 			named.OptionalWithDefault("metadata_payload", &metadataBytes),
-			encodingScanner,
+			named.OptionalWithDefault("metadata_encoding", &encodingType),
 			named.OptionalWithDefault("version", &version),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan queue metadata: %w", err)
 		}
-		if s.client.UseIntForEncoding() {
-			encoding = enumspb.EncodingType(encodingType).String()
-		}
+		encoding := enumspb.EncodingType(encodingType).String()
 		q, err := newQueueMetadataV2(request.QueueType, queueName, metadataBytes, encoding, version)
 		if err != nil {
 			return nil, err
@@ -394,24 +384,15 @@ LIMIT $page_size;
 func (s *QueueStoreV2) scanQueueMessageV2(res result.Result) (*persistence.QueueV2Message, error) {
 	var messageID int64
 	var data []byte
-	var encodingStr string
 	var encodingType conn.EncodingTypeRaw
-	var encodingScanner named.Value
-	if s.client.UseIntForEncoding() {
-		encodingScanner = named.OptionalWithDefault("message_encoding", &encodingType)
-	} else {
-		encodingScanner = named.OptionalWithDefault("message_encoding", &encodingStr)
-	}
 	if err := res.ScanNamed(
 		named.OptionalWithDefault("message_id", &messageID),
 		named.OptionalWithDefault("message_payload", &data),
-		encodingScanner,
+		named.OptionalWithDefault("message_encoding", &encodingType),
 	); err != nil {
 		return nil, fmt.Errorf("failed to scan queue message: %w", err)
 	}
-	if s.client.UseIntForEncoding() {
-		encodingStr = enumspb.EncodingType(encodingType).String()
-	}
+	encodingStr := enumspb.EncodingType(encodingType).String()
 	encoding, err := enumspb.EncodingTypeFromString(encodingStr)
 	if err != nil {
 		return nil, conn.WrapErrorAsRootCause(serialization.NewUnknownEncodingTypeError(encodingStr))
@@ -440,7 +421,7 @@ func (s *QueueStoreV2) updateQueue(
 DECLARE $queue_type AS Int32;
 DECLARE $queue_name AS Utf8;
 DECLARE $metadata_payload AS String;
-DECLARE $metadata_encoding AS ` + s.client.EncodingType().String() + `;
+DECLARE $metadata_encoding AS Int16;
 DECLARE $version AS Int64;
 DECLARE $prev_version AS Int64;
 
@@ -460,7 +441,7 @@ AND queue_name = $queue_name;
 		table.ValueParam("$queue_type", types.Int32Value(int32(queueType))),
 		table.ValueParam("$queue_name", types.UTF8Value(queueName)),
 		table.ValueParam("$metadata_payload", types.BytesValue(bytes)),
-		table.ValueParam("$metadata_encoding", s.client.EncodingTypeValue(enumspb.ENCODING_TYPE_PROTO3)),
+		table.ValueParam("$metadata_encoding", s.client.NewEncodingTypeValue(enumspb.ENCODING_TYPE_PROTO3)),
 		table.ValueParam("$version", types.Int64Value(nextVersion)),
 		table.ValueParam("$prev_version", types.Int64Value(version)),
 	)); err != nil {
@@ -578,24 +559,15 @@ func newQueueMetadataV2(queueType persistence.QueueV2Type, queueName string, dat
 
 func (s *QueueStoreV2) scanQueueMetadataV2(queueType persistence.QueueV2Type, queueName string, res result.Result) (*queue, error) {
 	var data []byte
-	var encoding string
 	var encodingType conn.EncodingTypeRaw
-	var encodingScanner named.Value
-	if s.client.UseIntForEncoding() {
-		encodingScanner = named.OptionalWithDefault("metadata_encoding", &encodingType)
-	} else {
-		encodingScanner = named.OptionalWithDefault("metadata_encoding", &encoding)
-	}
 	var version int64
 	if err := res.ScanNamed(
 		named.OptionalWithDefault("metadata_payload", &data),
-		encodingScanner,
+		named.OptionalWithDefault("metadata_encoding", &encodingType),
 		named.OptionalWithDefault("version", &version),
 	); err != nil {
 		return nil, fmt.Errorf("failed to scan queue metadata: %w", err)
 	}
-	if s.client.UseIntForEncoding() {
-		encoding = enumspb.EncodingType(encodingType).String()
-	}
+	encoding := enumspb.EncodingType(encodingType).String()
 	return newQueueMetadataV2(queueType, queueName, data, encoding, version)
 }
