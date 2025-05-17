@@ -240,3 +240,7 @@ replace github.com/jackc/pgconn => github.com/jackc/pgconn v1.14.0
 replace github.com/jackc/pgproto3/v2 => github.com/jackc/pgproto3/v2 v2.3.2
 
 replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.24
+
+replace github.com/docker/docker => github.com/docker/docker v25.0.6+incompatible
+
+replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.31.0
