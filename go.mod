@@ -13,8 +13,8 @@ require (
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.108.1
-	go.temporal.io/api v1.38.0
-	go.temporal.io/server v1.26.0-120
+	go.temporal.io/api v1.43.0
+	go.temporal.io/server v1.26.2
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.14.0
@@ -88,7 +88,7 @@ require (
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/nexus-rpc/sdk-go v0.0.10 // indirect
+	github.com/nexus-rpc/sdk-go v0.1.0 // indirect
 	github.com/olivere/elastic/v7 v7.0.32 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -109,7 +109,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
-	github.com/temporalio/ringpop-go v0.0.0-20240718232345-e2a435d149b6 // indirect
+	github.com/temporalio/ringpop-go v0.0.0-20241119001152-e505ebd8f887 // indirect
 	github.com/temporalio/sqlparser v0.0.0-20231115171017-f4060bcfa6cb // indirect
 	github.com/temporalio/tchannel-go v1.22.1-0.20240528171429-1db37fdea938 // indirect
 	github.com/twmb/murmur3 v1.1.8 // indirect
@@ -134,7 +134,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
-	go.temporal.io/sdk v1.29.1 // indirect
+	go.temporal.io/sdk v1.32.1 // indirect
 	go.temporal.io/version v0.3.0 // indirect
 	go.uber.org/dig v1.18.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
@@ -171,7 +171,9 @@ replace cloud.google.com/go/pubsub => cloud.google.com/go/pubsub v1.30.0
 
 replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc => go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.22.0
 
-replace go.temporal.io/server => go.temporal.io/server v1.25.2
+replace go.temporal.io/server => go.temporal.io/server v1.26.2
+
+replace go.temporal.io/sdk => go.temporal.io/sdk v1.31.0
 
 replace github.com/jackc/pgtype => github.com/jackc/pgtype v1.12.0
 
