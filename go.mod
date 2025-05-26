@@ -13,7 +13,7 @@ require (
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.108.1
-	go.temporal.io/api v1.43.0
+	go.temporal.io/api v1.44.1
 	go.temporal.io/server v1.26.2
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.0
@@ -170,6 +170,8 @@ replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-2021
 replace cloud.google.com/go/pubsub => cloud.google.com/go/pubsub v1.30.0
 
 replace go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc => go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.22.0
+
+replace go.temporal.io/api => go.temporal.io/api v1.43.2
 
 replace go.temporal.io/server => go.temporal.io/server v1.26.2
 
