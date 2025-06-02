@@ -120,9 +120,7 @@ func buildCLI() *cli.App {
 					logger.Info("Dynamic config client is not configured. Using noop client.")
 				}
 
-				authorizer, err := authorization.GetAuthorizerFromConfig(
-					&cfg.Global.Authorization,
-				)
+				authorizer, err := GetAuthorizerFromConfig(cfg, logger)
 				if err != nil {
 					return cli.Exit(fmt.Sprintf("Unable to instantiate authorizer. Error: %v", err), 1)
 				}
@@ -134,7 +132,7 @@ func buildCLI() *cli.App {
 					)
 				}
 
-				claimMapper, err := authorization.GetClaimMapperFromConfig(&cfg.Global.Authorization, logger)
+				claimMapper, err := GetClaimMapperFromConfig(cfg, logger)
 				if err != nil {
 					return cli.Exit(fmt.Sprintf("Unable to instantiate claim mapper: %v.", err), 1)
 				}

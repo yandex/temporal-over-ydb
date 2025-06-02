@@ -67,6 +67,7 @@
   "temporal-over-ydb/cmd/migrator/ping.go":"infra/temporal/temporal-over-ydb/cmd/migrator/ping.go",
   "temporal-over-ydb/cmd/migrator/root.go":"infra/temporal/temporal-over-ydb/cmd/migrator/root.go",
   "temporal-over-ydb/cmd/migrator/up.go":"infra/temporal/temporal-over-ydb/cmd/migrator/up.go",
+  "temporal-over-ydb/cmd/server/auth.go":"infra/temporal/temporal-over-ydb/cmd/server/auth.go",
   "temporal-over-ydb/cmd/server/main.go":"infra/temporal/temporal-over-ydb/cmd/server/main.go",
   "temporal-over-ydb/github_toplevel/.gitignore":"infra/temporal/temporal-over-ydb/github_toplevel/.gitignore",
   "temporal-over-ydb/github_toplevel/AUTHORS.md":"infra/temporal/temporal-over-ydb/github_toplevel/AUTHORS.md",
