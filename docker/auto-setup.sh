@@ -49,6 +49,7 @@ set -eu -o pipefail
 : "${YDB_DBNAME:=local}"
 : "${YDB_TABLE_PATH:=temporal}"
 : "${YDB_TOKEN:=}"
+: "${YDB_USE_SSL:=false}"
 
 # Elasticsearch
 : "${ENABLE_ES:=false}"
@@ -150,7 +151,7 @@ wait_for_postgres() {
 }
 
 wait_for_ydb() {
-    until ydb-migrator --host "${YDB_SEEDS}" --port "${YDB_PORT}" --db "${YDB_DBNAME}" --prefix "${YDB_TABLE_PATH}" ping; do
+    until ydb-migrator --host "${YDB_SEEDS}" --port "${YDB_PORT}" --secure="${YDB_USE_SSL}" --db "${YDB_DBNAME}" --prefix "${YDB_TABLE_PATH}" ping; do
         echo 'Waiting for YDB to startup.'
         sleep 1
     done
@@ -321,6 +322,7 @@ setup_ydb_schema() {
       ydb-migrator \
         --host "${YDB_SEEDS}" \
         --port "${YDB_PORT}" \
+        --secure="${YDB_USE_SSL}" \
         --db "${YDB_DBNAME}" \
         --prefix "${YDB_TABLE_PATH}" \
         up \
