@@ -138,7 +138,7 @@ require (
 	go.temporal.io/version v0.3.0 // indirect
 	go.uber.org/dig v1.18.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
-	go.uber.org/mock v0.5.0 // indirect
+	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
@@ -164,6 +164,8 @@ require (
 )
 
 exclude github.com/keybase/go.dbus v0.0.0-20220506165403-5aa21ea2c23a
+
+replace golang.org/x/tools => golang.org/x/tools v0.30.1-0.20250221230316-5055f70f240c
 
 replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-20210120172423-cc9239ac6294
 
