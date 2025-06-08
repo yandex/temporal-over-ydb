@@ -5,7 +5,7 @@ go 1.23.8
 require (
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
 	github.com/pborman/uuid v1.2.1
-	github.com/pressly/goose/v3 v3.24.3
+	github.com/pressly/goose/v3 v3.24.2
 	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/cobra v1.9.1
 	github.com/urfave/cli/v2 v2.27.5
@@ -56,7 +56,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-sql-driver/mysql v1.9.2 // indirect
+	github.com/go-sql-driver/mysql v1.9.1 // indirect
 	github.com/gocql/gocql v1.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
@@ -96,7 +96,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rekby/fixenv v0.7.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
@@ -141,7 +141,7 @@ require (
 	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
-	golang.org/x/exp v0.0.0-20250506013437-ce4c2cf36ca6 // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
@@ -157,15 +157,13 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/validator.v2 v2.0.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	modernc.org/libc v1.65.0 // indirect
+	modernc.org/libc v1.62.1 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
-	modernc.org/memory v1.10.0 // indirect
+	modernc.org/memory v1.9.1 // indirect
 	modernc.org/sqlite v1.37.0 // indirect
 )
 
 exclude github.com/keybase/go.dbus v0.0.0-20220506165403-5aa21ea2c23a
-
-replace golang.org/x/tools => golang.org/x/tools v0.30.1-0.20250221230316-5055f70f240c
 
 replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-20210120172423-cc9239ac6294
 
@@ -250,3 +248,11 @@ replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.24
 replace github.com/docker/docker => github.com/docker/docker v25.0.6+incompatible
 
 replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.31.0
+
+replace github.com/grpc-ecosystem/go-grpc-middleware/v2 => github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.2.0
+
+replace github.com/vertica/vertica-sql-go => github.com/vertica/vertica-sql-go v1.2.2
+
+replace golang.org/x/tools => golang.org/x/tools v0.30.1-0.20250221230316-5055f70f240c
+
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
