@@ -22,9 +22,9 @@ require (
 )
 
 require (
-	cel.dev/expr v0.19.1 // indirect
+	cel.dev/expr v0.23.1 // indirect
 	cloud.google.com/go v0.118.0 // indirect
-	cloud.google.com/go/auth v0.14.0 // indirect
+	cloud.google.com/go/auth v0.15.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	cloud.google.com/go/iam v1.3.1 // indirect
@@ -146,8 +146,8 @@ require (
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
-	google.golang.org/api v0.217.0 // indirect
+	golang.org/x/time v0.10.0 // indirect
+	google.golang.org/api v0.224.0 // indirect
 	google.golang.org/genproto v0.0.0-20250124145028-65684f501c47 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
@@ -247,6 +247,8 @@ replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.24
 
 replace github.com/docker/docker => github.com/docker/docker v25.0.6+incompatible
 
+replace github.com/docker/cli => github.com/docker/cli v25.0.4+incompatible
+
 replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.31.0
 
 replace github.com/grpc-ecosystem/go-grpc-middleware/v2 => github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.2.0
@@ -256,3 +258,7 @@ replace github.com/vertica/vertica-sql-go => github.com/vertica/vertica-sql-go v
 replace golang.org/x/tools => golang.org/x/tools v0.30.1-0.20250221230316-5055f70f240c
 
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.14.6
+
+replace buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.4-20250130201111-63bb56e20495.1
+
+replace github.com/bufbuild/protoyaml-go => buf.build/go/protoyaml v0.3.2
