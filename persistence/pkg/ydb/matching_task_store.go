@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ydb-platform/ydb-go-genproto/protos/Ydb"
+	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result/named"
@@ -252,6 +254,12 @@ func (d *MatchingTaskStore) UpdateTaskQueueUserData(
 		}
 	}()
 
+	for _, update := range request.Updates {
+		if update.Conflicting != nil {
+			*update.Conflicting = false
+		}
+	}
+
 	templateInsertTaskQueueUserDataQuery := d.client.AddQueryPrefix(d.client.NamspaceIDDecl() + `
 DECLARE $task_queue_name AS utf8;
 DECLARE $data AS string;
@@ -281,85 +289,101 @@ WHERE namespace_id = $namespace_id
 AND task_queue_name = $task_queue_name;
 `)
 
-	toAdd := make([]types.Value, 0, len(request.BuildIdsAdded))
-	for _, buildID := range request.BuildIdsAdded {
-		toAdd = append(toAdd, types.StructValue(
-			types.StructFieldValue("namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
-			types.StructFieldValue("build_id", types.UTF8Value(buildID)),
-			types.StructFieldValue("task_queue_name", types.UTF8Value(request.TaskQueue)),
-		))
-	}
-
-	toDelete := make([]types.Value, 0, len(request.BuildIdsRemoved))
-	for _, buildID := range request.BuildIdsRemoved {
-		toDelete = append(toDelete, types.StructValue(
-			types.StructFieldValue("namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
-			types.StructFieldValue("build_id", types.UTF8Value(buildID)),
-			types.StructFieldValue("task_queue_name", types.UTF8Value(request.TaskQueue)),
-		))
-	}
-
-	return d.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
-		if request.Version == 0 {
-			params := table.NewQueryParameters(
-				table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
-				table.ValueParam("$task_queue_name", types.UTF8Value(request.TaskQueue)),
-				table.ValueParam("$data", types.BytesValue(request.UserData.Data)),
-				table.ValueParam("$data_encoding", d.client.EncodingTypeValue(request.UserData.EncodingType)),
-			)
-			if _, err = tx.Execute(ctx, templateInsertTaskQueueUserDataQuery, params); err != nil {
-				return err
+	err = d.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+		for taskQueueName, update := range request.Updates {
+			toAdd := make([]types.Value, 0, len(update.BuildIdsAdded))
+			for _, buildID := range update.BuildIdsAdded {
+				toAdd = append(toAdd, types.StructValue(
+					types.StructFieldValue("namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
+					types.StructFieldValue("build_id", types.UTF8Value(buildID)),
+					types.StructFieldValue("task_queue_name", types.UTF8Value(taskQueueName)),
+				))
 			}
-		} else {
-			params := table.NewQueryParameters(
-				table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
-				table.ValueParam("$task_queue_name", types.UTF8Value(request.TaskQueue)),
-				table.ValueParam("$data", types.BytesValue(request.UserData.Data)),
-				table.ValueParam("$data_encoding", d.client.EncodingTypeValue(request.UserData.EncodingType)),
-				table.ValueParam("$prev_version", types.Int64Value(request.Version)),
-				table.ValueParam("$version", types.Int64Value(request.Version+1)),
-			)
 
-			if _, err = tx.Execute(ctx, templateUpdateTaskQueueUserDataQuery, params); err != nil {
-				return err
+			toDelete := make([]types.Value, 0, len(update.BuildIdsRemoved))
+			for _, buildID := range update.BuildIdsRemoved {
+				toDelete = append(toDelete, types.StructValue(
+					types.StructFieldValue("namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
+					types.StructFieldValue("build_id", types.UTF8Value(buildID)),
+					types.StructFieldValue("task_queue_name", types.UTF8Value(taskQueueName)),
+				))
 			}
-		}
 
-		var declares []string
-		var stmts []string
-		params := table.NewQueryParameters()
+			if update.Version == 0 {
+				params := table.NewQueryParameters(
+					table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
+					table.ValueParam("$task_queue_name", types.UTF8Value(taskQueueName)),
+					table.ValueParam("$data", types.BytesValue(update.UserData.Data)),
+					table.ValueParam("$data_encoding", d.client.EncodingTypeValue(update.UserData.EncodingType)),
+				)
+				if _, err = tx.Execute(ctx, templateInsertTaskQueueUserDataQuery, params); err != nil {
+					return err
+				}
+			} else {
+				params := table.NewQueryParameters(
+					table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
+					table.ValueParam("$task_queue_name", types.UTF8Value(taskQueueName)),
+					table.ValueParam("$data", types.BytesValue(update.UserData.Data)),
+					table.ValueParam("$data_encoding", d.client.EncodingTypeValue(update.UserData.EncodingType)),
+					table.ValueParam("$prev_version", types.Int64Value(update.Version)),
+					table.ValueParam("$version", types.Int64Value(update.Version+1)),
+				)
 
-		if len(toAdd) > 0 {
-			declares = append(declares, `
+				if _, err = tx.Execute(ctx, templateUpdateTaskQueueUserDataQuery, params); err != nil {
+					if update.Conflicting != nil && ydb.IsOperationError(err, Ydb.StatusIds_PRECONDITION_FAILED) {
+						*update.Conflicting = true
+					}
+					return err
+				}
+			}
+
+			var declares []string
+			var stmts []string
+			params := table.NewQueryParameters()
+
+			if len(toAdd) > 0 {
+				declares = append(declares, `
 DECLARE $to_add AS List<Struct<
     namespace_id: `+d.client.NamespaceIDType().String()+`,
 	build_id: Utf8,
 	task_queue_name: Utf8
 >>;
 `)
-			stmts = append(stmts, `
+				stmts = append(stmts, `
 UPSERT INTO build_id_to_task_queue (namespace_id, build_id, task_queue_name)
 SELECT namespace_id, build_id, task_queue_name
 FROM AS_TABLE($to_add);
 `)
-			params.Add(table.ValueParam("$to_add", types.ListValue(toAdd...)))
-		}
-		if len(toDelete) > 0 {
-			declares = append(declares, `
+				params.Add(table.ValueParam("$to_add", types.ListValue(toAdd...)))
+			}
+			if len(toDelete) > 0 {
+				declares = append(declares, `
 DECLARE $to_delete AS List<Struct<
     namespace_id: `+d.client.NamespaceIDType().String()+`,
 	build_id: Utf8,
 	task_queue_name: Utf8
 >>;
 `)
-			stmts = append(stmts, "DELETE FROM build_id_to_task_queue ON SELECT * FROM AS_TABLE($to_delete);")
-			params.Add(table.ValueParam("$to_delete", types.ListValue(toDelete...)))
-		}
+				stmts = append(stmts, "DELETE FROM build_id_to_task_queue ON SELECT * FROM AS_TABLE($to_delete);")
+				params.Add(table.ValueParam("$to_delete", types.ListValue(toDelete...)))
+			}
 
-		template := d.client.AddQueryPrefix(strings.Join(declares, "\n") + "\n" + strings.Join(stmts, "\n"))
-		_, err = tx.Execute(ctx, template, params)
-		return err
+			template := d.client.AddQueryPrefix(strings.Join(declares, "\n") + "\n" + strings.Join(stmts, "\n"))
+			if _, err = tx.Execute(ctx, template, params); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
+
+	applied := err == nil
+	for _, update := range request.Updates {
+		if update.Applied != nil {
+			*update.Applied = applied
+		}
+	}
+
+	return err
 }
 
 func (d *MatchingTaskStore) CreateTaskQueue(
