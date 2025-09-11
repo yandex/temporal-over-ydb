@@ -141,7 +141,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.temporal.io/sdk v1.34.0 // indirect
 	go.temporal.io/version v0.3.0 // indirect
-	go.uber.org/dig v1.18.1 // indirect
+	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/mock v0.5.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
