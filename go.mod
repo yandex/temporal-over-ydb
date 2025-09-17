@@ -120,7 +120,7 @@ require (
 	github.com/uber-go/tally/v4 v4.1.17-0.20240412215630-22fe011f5ff0 // indirect
 	github.com/uber/jaeger-client-go v2.30.0+incompatible // indirect
 	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
-	github.com/yandex-cloud/go-genproto v0.7.0 // indirect
+	github.com/yandex-cloud/go-genproto v0.24.0 // indirect
 	github.com/ydb-platform/ydb-go-yc v0.12.3 // indirect
 	github.com/ydb-platform/ydb-go-yc-metadata v0.6.1 // indirect
 	github.com/zeebo/errs v1.4.0 // indirect
