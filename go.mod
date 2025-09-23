@@ -12,7 +12,7 @@ require (
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20250911135631-b3beddd517d9
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
-	github.com/ydb-platform/ydb-go-sdk/v3 v3.116.0
+	github.com/ydb-platform/ydb-go-sdk/v3 v3.116.1
 	go.temporal.io/api v1.47.0
 	go.temporal.io/server v1.28.0-131.0
 	go.uber.org/atomic v1.11.0
