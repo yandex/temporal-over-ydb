@@ -111,7 +111,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/temporalio/ringpop-go v0.0.0-20250130211428-b97329e994f7 // indirect
 	github.com/temporalio/sqlparser v0.0.0-20231115171017-f4060bcfa6cb // indirect
 	github.com/temporalio/tchannel-go v1.22.1-0.20240528171429-1db37fdea938 // indirect
@@ -268,3 +268,5 @@ replace buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => buf.build/
 replace github.com/bufbuild/protoyaml-go => buf.build/go/protoyaml v0.3.2
 
 replace golang.org/x/sync => golang.org/x/sync v0.15.0
+
+replace github.com/stretchr/testify => github.com/stretchr/testify v1.10.0
