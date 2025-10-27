@@ -1,5 +1,8 @@
 log:
     stdout: true
+    {{- if .Env.LOG_OUTPUT_FILE }}
+    outputFile: {{ .Env.LOG_OUTPUT_FILE }}
+    {{- end }}
     level: {{ default .Env.LOG_LEVEL "info" }}
 
 persistence:
