@@ -1,5 +1,5 @@
 log:
-    stdout: true
+    stdout: {{ default .Env.LOG_STDOUT "true" }}
     {{- if .Env.LOG_OUTPUT_FILE }}
     outputFile: {{ .Env.LOG_OUTPUT_FILE }}
     {{- end }}
