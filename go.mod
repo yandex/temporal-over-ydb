@@ -9,10 +9,10 @@ require (
 	github.com/prometheus/client_golang v1.21.1
 	github.com/spf13/cobra v1.9.1
 	github.com/urfave/cli/v2 v2.27.6
-	github.com/ydb-platform/ydb-go-genproto v0.0.0-20250911135631-b3beddd517d9
+	github.com/ydb-platform/ydb-go-genproto v0.0.0-20251125145508-6d7ef87db5cb
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
-	github.com/ydb-platform/ydb-go-sdk/v3 v3.118.2
+	github.com/ydb-platform/ydb-go-sdk/v3 v3.121.1
 	go.temporal.io/api v1.47.0
 	go.temporal.io/server v1.28.0-131.0
 	go.uber.org/atomic v1.11.0
