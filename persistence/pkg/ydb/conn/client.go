@@ -165,12 +165,20 @@ func (client *Client) GetPrefix() string {
 	return fmt.Sprintf("%s/%s", client.Database, client.Folder)
 }
 
-func (client *Client) queryPrefix() string {
-	return fmt.Sprintf("--!syntax_v1\nPRAGMA TablePathPrefix(\"%s\");\n", client.GetPrefix())
+func (client *Client) GetCustomPrefix(custom string) string {
+	return fmt.Sprintf("%s/%s/%s", client.Database, custom, client.Folder)
+}
+
+func (client *Client) queryPrefix(tablePath string) string {
+	return fmt.Sprintf("--!syntax_v1\nPRAGMA TablePathPrefix(\"%s\");\n", tablePath)
 }
 
 func (client *Client) AddQueryPrefix(query string) string {
-	return client.queryPrefix() + query
+	return client.queryPrefix(client.GetPrefix()) + query
+}
+
+func (client *Client) AddCustomQueryPrefix(custom string, query string) string {
+	return client.queryPrefix(client.GetCustomPrefix(custom)) + query
 }
 
 func (client *Client) Write(
