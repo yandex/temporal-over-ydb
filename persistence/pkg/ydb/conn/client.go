@@ -161,12 +161,12 @@ func (client *Client) Close(ctx context.Context) error {
 	return client.DB.Close(closeCtx)
 }
 
-func (client *Client) GetPrefix() string {
-	return fmt.Sprintf("%s/%s", client.Database, client.Folder)
+func (client *Client) GetDefaultPrefix() string {
+	return client.GetPrefix(client.Folder)
 }
 
-func (client *Client) GetCustomPrefix(custom string) string {
-	return fmt.Sprintf("%s/%s/%s", client.Database, custom, client.Folder)
+func (client *Client) GetPrefix(folder string) string {
+	return fmt.Sprintf("%s/%s", client.Database, folder)
 }
 
 func (client *Client) queryPrefix(tablePath string) string {
@@ -174,11 +174,11 @@ func (client *Client) queryPrefix(tablePath string) string {
 }
 
 func (client *Client) AddQueryPrefix(query string) string {
-	return client.queryPrefix(client.GetPrefix()) + query
+	return client.queryPrefix(client.GetDefaultPrefix()) + query
 }
 
-func (client *Client) AddCustomQueryPrefix(custom string, query string) string {
-	return client.queryPrefix(client.GetCustomPrefix(custom)) + query
+func (client *Client) AddCustomQueryPrefix(folder string, query string) string {
+	return client.queryPrefix(client.GetPrefix(folder)) + query
 }
 
 func (client *Client) Write(
