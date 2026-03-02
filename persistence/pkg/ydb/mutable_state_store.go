@@ -301,6 +301,7 @@ func (d *MutableStateStore) scanMutableState(ctx context.Context, res query.Resu
 		ChildExecutionInfos: make(map[int64]*commonpb.DataBlob),
 		RequestCancelInfos:  make(map[int64]*commonpb.DataBlob),
 		SignalInfos:         make(map[int64]*commonpb.DataBlob),
+		ChasmNodes:          make(map[string]p.InternalChasmNode),
 	}
 
 	for row, err := range res.Rows(ctx) {
@@ -390,6 +391,14 @@ func (d *MutableStateStore) scanMutableState(ctx context.Context, res query.Resu
 				state.SignalRequestedIDs = append(state.SignalRequestedIDs, eventName)
 			case baserows.ItemTypeBufferedEvent:
 				state.BufferedEvents = append(state.BufferedEvents, p.NewDataBlob(eventData, eventEncoding))
+			case baserows.ItemTypeChasmNodeMetadata:
+				node := state.ChasmNodes[eventName]
+				node.Metadata = p.NewDataBlob(eventData, eventEncoding)
+				state.ChasmNodes[eventName] = node
+			case baserows.ItemTypeChasmNodeData:
+				node := state.ChasmNodes[eventName]
+				node.Data = p.NewDataBlob(eventData, eventEncoding)
+				state.ChasmNodes[eventName] = node
 			default:
 				return nil, 0, fmt.Errorf("unknown event type: %d", eventType)
 			}

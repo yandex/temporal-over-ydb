@@ -157,6 +157,8 @@ func (d *BaseMutableStateStore) UpdateWorkflowExecutionWithinTransaction(
 	transaction.AssertShard(false, request.RangeID)
 
 	switch request.Mode {
+	case p.UpdateWorkflowModeIgnoreCurrent:
+		// noop: update workflow without checking or updating current_executions
 	case p.UpdateWorkflowModeBypassCurrent:
 		transaction.AssertCurrentWorkflow(
 			true,

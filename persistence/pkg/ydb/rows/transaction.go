@@ -169,6 +169,12 @@ func (f *transactionImpl) getStateMapRowsFromMutation(bufferedEventID string, wo
 	if workflowMutation.NewBufferedEvents != nil {
 		ups = append(ups, f.getBufferedEventItemRow(namespaceID, workflowID, runID, bufferedEventID, workflowMutation.NewBufferedEvents))
 	}
+	for path, node := range workflowMutation.UpsertChasmNodes {
+		ups = append(ups, f.getNamedStateItem(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeMetadata, path, node.Metadata))
+		if node.Data != nil {
+			ups = append(ups, f.getNamedStateItem(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeData, path, node.Data))
+		}
+	}
 	return ups
 }
 
@@ -196,6 +202,12 @@ func (f *transactionImpl) getStateItemRowsFromSnapshot(s *p.InternalWorkflowSnap
 	for signalID := range s.SignalRequestedIDs {
 		items = append(items, f.getSignalRequestedItem(namespaceID, workflowID, runID, signalID))
 	}
+	for path, node := range s.ChasmNodes {
+		items = append(items, f.getNamedStateItem(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeMetadata, path, node.Metadata))
+		if node.Data != nil {
+			items = append(items, f.getNamedStateItem(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeData, path, node.Data))
+		}
+	}
 	return items
 }
 
@@ -221,6 +233,10 @@ func (f *transactionImpl) getStateKeysFromMutation(workflowMutation *p.InternalW
 	}
 	for signalID := range workflowMutation.DeleteSignalRequestedIDs {
 		keys = append(keys, f.getSignalRequestedItemKey(namespaceID, workflowID, runID, signalID))
+	}
+	for path := range workflowMutation.DeleteChasmNodes {
+		keys = append(keys, f.getNamedStateItemKey(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeMetadata, path))
+		keys = append(keys, f.getNamedStateItemKey(namespaceID, workflowID, runID, baserows.ItemTypeChasmNodeData, path))
 	}
 	return keys
 }

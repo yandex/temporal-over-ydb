@@ -8,4 +8,6 @@ const (
 	ItemTypeChildExecution
 	ItemTypeBufferedEvent
 	ItemTypeSignalRequested
+	ItemTypeChasmNodeMetadata
+	ItemTypeChasmNodeData
 )
