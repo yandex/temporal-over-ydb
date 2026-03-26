@@ -350,7 +350,7 @@ LIMIT $page_size
 	}
 
 	var nextPageToken []byte
-	if len(endpoints) == request.PageSize {
+	if len(endpoints) > 0 && len(endpoints) == request.PageSize {
 		token := tokens.NexusEndpointsPageToken{
 			LastSeenEndpointID: endpoints[len(endpoints)-1].ID,
 		}
