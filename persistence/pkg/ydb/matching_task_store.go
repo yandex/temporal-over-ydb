@@ -748,37 +748,6 @@ LIMIT $page_size;
 	return resp, nil
 }
 
-// CompleteTask delete a task
-func (d *MatchingTaskStore) CompleteTask(
-	ctx context.Context,
-	request *p.CompleteTaskRequest,
-) error {
-	queueName := request.TaskQueue.TaskQueueName
-	queueType := int32(request.TaskQueue.TaskQueueType)
-	taskID := request.TaskID
-	template := d.client.AddQueryPrefix(d.client.NamspaceIDDecl() + `
-DECLARE $task_queue_name AS utf8;
-DECLARE $task_queue_type AS int32;
-DECLARE $task_id AS int64;
-
-DELETE FROM tasks_and_task_queues
-WHERE namespace_id = $namespace_id
-AND task_queue_name = $task_queue_name
-AND task_queue_type = $task_queue_type
-AND task_id = $task_id;
-`)
-	if err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.TaskQueue.NamespaceID)),
-		table.ValueParam("$task_queue_name", types.UTF8Value(queueName)),
-		table.ValueParam("$task_queue_type", types.Int32Value(queueType)),
-		table.ValueParam("$task_id", types.Int64Value(taskID)),
-	)); err != nil {
-		details := fmt.Sprintf("name: %v, type: %v, task_id: %v", queueName, queueType, taskID)
-		return conn.ConvertToTemporalError("CompleteTask", err, details)
-	}
-	return nil
-}
-
 // CompleteTasksLessThan deletes all tasks less than the given task id. This API ignores the
 // Limit request parameter i.e. either all tasks leq the task_id will be deleted or an error will
 // be returned to the caller

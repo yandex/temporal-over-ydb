@@ -24,7 +24,7 @@ func getCurrentWorkflowConflictError(
 	executionStateBlob *commonpb.DataBlob,
 	lastWriteVersion int64,
 ) error {
-	executionState, err := serialization.WorkflowExecutionStateFromBlob(executionStateBlob.Data, executionStateBlob.EncodingType.String())
+	executionState, err := serialization.WorkflowExecutionStateFromBlob(executionStateBlob)
 	if err != nil {
 		return baseerrors.NewInternalF("failed to get execution state from blob: %v", err)
 	}

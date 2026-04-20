@@ -274,7 +274,7 @@ LIMIT 1;
 		encoding = enumspb.EncodingType(encodingType).String()
 	}
 	blob := p.NewDataBlob(data, encoding)
-	executionState, err := serialization.WorkflowExecutionStateFromBlob(blob.Data, blob.EncodingType.String())
+	executionState, err := serialization.WorkflowExecutionStateFromBlob(blob)
 	if err != nil {
 		return nil, err
 	}

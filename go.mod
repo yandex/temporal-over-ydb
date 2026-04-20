@@ -1,6 +1,6 @@
 module github.com/yandex/temporal-over-ydb
 
-go 1.25.0
+go 1.25.8
 
 require (
 	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
@@ -13,8 +13,8 @@ require (
 	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.133.1
-	go.temporal.io/api v1.50.1
-	go.temporal.io/server v1.28.2
+	go.temporal.io/api v1.53.0
+	go.temporal.io/server v1.29.6
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/sync v0.20.0
@@ -133,6 +133,7 @@ require (
 	github.com/ydb-platform/ydb-go-yc v0.12.3 // indirect
 	github.com/ydb-platform/ydb-go-yc-metadata v0.6.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/collector/pdata v1.50.0 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.39.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.62.0 // indirect
@@ -146,8 +147,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
 	go.opentelemetry.io/otel/trace v1.40.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.7.1 // indirect
-	go.temporal.io/sdk v1.34.0 // indirect
-	go.temporal.io/version v0.3.0 // indirect
+	go.temporal.io/sdk v1.35.0 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
@@ -201,11 +201,11 @@ replace github.com/insomniacslk/dhcp => github.com/insomniacslk/dhcp v0.0.0-2021
 
 replace cloud.google.com/go/pubsub => cloud.google.com/go/pubsub v1.30.0
 
-replace go.temporal.io/api => go.temporal.io/api v1.50.1
+replace go.temporal.io/api => go.temporal.io/api v1.53.0
 
-replace go.temporal.io/sdk => go.temporal.io/sdk v1.34.0
+replace go.temporal.io/sdk => go.temporal.io/sdk v1.35.0
 
-replace go.temporal.io/server => go.temporal.io/server v1.28.2
+replace go.temporal.io/server => go.temporal.io/server v1.29.6
 
 replace github.com/uber-go/tally/v4 => github.com/uber-go/tally/v4 v4.1.17-0.20240412215630-22fe011f5ff0
 

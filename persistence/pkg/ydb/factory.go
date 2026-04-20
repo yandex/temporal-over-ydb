@@ -133,6 +133,12 @@ func (f *Factory) NewTaskStore() (p.TaskStore, error) {
 	return NewMatchingTaskStore(f.Client, f.logger), nil
 }
 
+// NewFairTaskStore returns a new task store with fairness enabled.
+// Currently delegates to the regular task store.
+func (f *Factory) NewFairTaskStore() (p.TaskStore, error) {
+	return f.NewTaskStore()
+}
+
 // NewMirroringTaskStore returns a new task store
 func (f *Factory) NewMirroringTaskStore() (p.TaskStore, error) {
 	return NewMirroringMatchingTaskStore(f.Client, f.logger), nil
