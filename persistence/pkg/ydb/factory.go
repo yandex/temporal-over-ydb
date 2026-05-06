@@ -4,8 +4,11 @@ import (
 	"context"
 	"sync"
 
+	"a.yandex-team.ru/library/go/core/metrics/solomon"
+	ydbMetrics "a.yandex-team.ru/library/go/yandex/ydb/metrics/v2"
 	"github.com/mitchellh/mapstructure"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
+	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 	"go.temporal.io/server/common/config"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/log/tag"
@@ -54,10 +57,41 @@ type ydbAbstractDataStoreFactory struct {
 	ydbClientOptions []ydb.Option
 }
 
-func NewYDBAbstractDataStoreFactory(ydbClientOptions ...ydb.Option) client.AbstractDataStoreFactory {
-	return &ydbAbstractDataStoreFactory{
-		ydbClientOptions: ydbClientOptions,
+// Option configures an ydbAbstractDataStoreFactory.
+type Option func(*ydbAbstractDataStoreFactory)
+
+// WithYDBOptions appends extra ydb.Option values to be passed to the underlying
+// YDB client when sessions are constructed.
+func WithYDBOptions(opts ...ydb.Option) Option {
+	return func(f *ydbAbstractDataStoreFactory) {
+		f.ydbClientOptions = append(f.ydbClientOptions, opts...)
 	}
+}
+
+// ydbMetricsDetails is the set of ydb-go-sdk trace events whose metrics we
+// publish: driver/balancer/conn lifecycle, discovery, table-pool, and
+// query-pool events. Other trace categories (per-session/transaction details,
+// scripting, scheme, ratelimiter, coordination, topic, database/sql) stay off
+// to keep cardinality bounded.
+const ydbMetricsDetails = trace.DriverEvents | trace.DiscoveryEvents | trace.TablePoolEvents | trace.QueryPoolEvents
+
+// WithMetricsRegistry enables ydb-go-sdk metric traces against the given
+// solomon registry. A nil registry disables it.
+func WithMetricsRegistry(r *solomon.Registry) Option {
+	return func(f *ydbAbstractDataStoreFactory) {
+		if r == nil {
+			return
+		}
+		f.ydbClientOptions = append(f.ydbClientOptions, ydbMetrics.WithTraces(r, ydbMetrics.WithDetails(ydbMetricsDetails)))
+	}
+}
+
+func NewYDBAbstractDataStoreFactory(opts ...Option) client.AbstractDataStoreFactory {
+	f := &ydbAbstractDataStoreFactory{}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 func (f *ydbAbstractDataStoreFactory) NewFactory(
