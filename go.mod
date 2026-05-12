@@ -3,7 +3,7 @@ module github.com/yandex/temporal-over-ydb
 go 1.25.8
 
 require (
-	github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
+	github.com/mitchellh/mapstructure v1.5.1-0.20231216201459-8508981c8b6c
 	github.com/pborman/uuid v1.2.1
 	github.com/pressly/goose/v3 v3.24.2
 	github.com/prometheus/client_golang v1.23.2
@@ -67,7 +67,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/mock v1.7.0-rc.1 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
+	github.com/google/pprof v0.0.0-20250923004556-9e5a51aed1e8 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect
@@ -152,6 +152,7 @@ require (
 	go.uber.org/fx v1.23.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
 	golang.org/x/net v0.51.0 // indirect
@@ -217,17 +218,17 @@ replace github.com/confluentinc/confluent-kafka-go/v2 => github.com/confluentinc
 
 replace gopkg.in/DataDog/dd-trace-go.v1 => gopkg.in/DataDog/dd-trace-go.v1 v1.62.0
 
-replace k8s.io/api => k8s.io/api v0.31.6
+replace k8s.io/api => k8s.io/api v0.33.0
 
-replace k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.6
+replace k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.33.0
 
-replace k8s.io/apimachinery => k8s.io/apimachinery v0.31.6
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.33.0
 
-replace k8s.io/apiserver => k8s.io/apiserver v0.31.6
+replace k8s.io/apiserver => k8s.io/apiserver v0.33.0
 
 replace k8s.io/cli-runtime => k8s.io/cli-runtime v0.31.6
 
-replace k8s.io/client-go => k8s.io/client-go v0.31.6
+replace k8s.io/client-go => k8s.io/client-go v0.33.0
 
 replace k8s.io/cloud-provider => k8s.io/cloud-provider v0.26.1
 
@@ -235,7 +236,7 @@ replace k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.26.1
 
 replace k8s.io/code-generator => k8s.io/code-generator v0.26.1
 
-replace k8s.io/component-base => k8s.io/component-base v0.31.6
+replace k8s.io/component-base => k8s.io/component-base v0.33.0
 
 replace k8s.io/cri-api => k8s.io/cri-api v0.23.5
 
@@ -243,7 +244,7 @@ replace k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.26.1
 
 replace k8s.io/dynamic-resource-allocation => k8s.io/dynamic-resource-allocation v0.26.1
 
-replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.31.6
+replace k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.33.0
 
 replace k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.26.1
 
@@ -271,9 +272,9 @@ replace github.com/temporalio/omes => github.com/temporalio/omes v0.0.0-20240701
 
 replace github.com/aleroyer/rsyslog_exporter => github.com/prometheus-community/rsyslog_exporter v1.1.0
 
-replace github.com/prometheus/common => github.com/prometheus/common v0.63.0
+replace github.com/prometheus/common => github.com/prometheus/common v0.66.1
 
-replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.21.0
+replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.23.2
 
 replace github.com/prometheus/client_model => github.com/prometheus/client_model v0.6.1
 
@@ -295,7 +296,7 @@ replace github.com/grpc-ecosystem/go-grpc-middleware/v2 => github.com/grpc-ecosy
 
 replace github.com/vertica/vertica-sql-go => github.com/vertica/vertica-sql-go v1.2.2
 
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.6
+replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.21.0
 
 replace buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go => buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.4-20250130201111-63bb56e20495.1
 
@@ -316,5 +317,15 @@ replace github.com/google/go-tpm-tools => github.com/google/go-tpm-tools v0.4.2
 replace go.opentelemetry.io/collector/config/configtls => go.opentelemetry.io/collector/config/configtls v1.31.0
 
 replace go.opentelemetry.io/otel/exporters/prometheus => go.opentelemetry.io/otel/exporters/prometheus v0.58.0
+
+replace github.com/jarcoal/httpmock => github.com/jarcoal/httpmock v1.3.1
+
+replace github.com/google/gnostic-models => github.com/google/gnostic-models v0.6.9
+
+replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250626183228-af0a60a813f8
+
+replace k8s.io/kubectl => k8s.io/kubectl v0.26.0
+
+replace github.com/go-resty/resty/v2 => github.com/go-resty/resty/v2 v2.16.3
 
 replace github.com/getsentry/sentry-go => github.com/getsentry/sentry-go v0.13.0
