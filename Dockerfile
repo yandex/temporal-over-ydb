@@ -1,4 +1,4 @@
-ARG BUILDER_IMAGE=golang:1.23-alpine3.20
+ARG BUILDER_IMAGE=golang:1.25-alpine3.23
 ARG BASE_SERVER_IMAGE=temporalio/server:1.29.6
 ARG BASE_AUTO_SETUP_IMAGE=temporalio/auto-setup:1.29.6
 
