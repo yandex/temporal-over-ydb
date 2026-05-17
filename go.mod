@@ -226,6 +226,8 @@ replace k8s.io/apimachinery => k8s.io/apimachinery v0.33.0
 
 replace k8s.io/apiserver => k8s.io/apiserver v0.33.0
 
+replace k8s.io/kms => k8s.io/kms v0.33.0
+
 replace k8s.io/cli-runtime => k8s.io/cli-runtime v0.31.6
 
 replace k8s.io/client-go => k8s.io/client-go v0.33.0
