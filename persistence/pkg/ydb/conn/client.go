@@ -113,7 +113,7 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 	if cfg.Token != "" {
 		opts = append(opts, ydb.WithAccessTokenCredentials(cfg.Token))
 	} else if haveCredentialsInEnv() {
-		opts = append(opts, ydbenv.WithEnvironCredentials(ctx))
+		opts = append(opts, ydbenv.WithEnvironCredentials())
 	} else {
 		logger.Info("no credentials provided for ydb client, relying on opts...")
 	}

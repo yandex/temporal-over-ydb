@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/spf13/cobra"
@@ -47,7 +46,7 @@ var (
 			endpoint := host + ":" + port
 			driver, err := ydb.Open(cmd.Context(),
 				sugar.DSN(endpoint, dbName, sugar.WithSecure(withSecure)),
-				ydbenv.WithEnvironCredentials(context.Background()),
+				ydbenv.WithEnvironCredentials(),
 			)
 			if err != nil {
 				return err

@@ -10,7 +10,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20260311095541-ebbf792c1180
-	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.2.0
+	github.com/ydb-platform/ydb-go-sdk-auth-environ v0.5.2
 	github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0
 	github.com/ydb-platform/ydb-go-sdk/v3 v3.138.0
 	go.temporal.io/api v1.53.0
