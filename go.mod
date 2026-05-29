@@ -289,7 +289,9 @@ replace github.com/jackc/pgproto3/v2 => github.com/jackc/pgproto3/v2 v2.3.2
 
 replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.24
 
-replace github.com/docker/docker => github.com/docker/docker v27.5.1+incompatible
+replace github.com/docker/docker => github.com/docker/docker v28.0.4+incompatible
+
+replace github.com/containerd/containerd/v2 => github.com/containerd/containerd/v2 v2.1.5
 
 replace github.com/docker/cli => github.com/docker/cli v25.0.4+incompatible
 
@@ -311,9 +313,9 @@ replace github.com/stretchr/testify => github.com/stretchr/testify v1.10.0
 
 replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc => go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.60.0
 
-replace github.com/moby/buildkit => github.com/moby/buildkit v0.18.2
+replace github.com/moby/buildkit => github.com/moby/buildkit v0.20.2
 
-replace github.com/tonistiigi/fsutil => github.com/tonistiigi/fsutil v0.0.0-20241121093142-31cf1f437184
+replace github.com/tonistiigi/fsutil => github.com/tonistiigi/fsutil v0.0.0-20250113203817-b14e27f4135a
 
 replace github.com/google/go-tpm-tools => github.com/google/go-tpm-tools v0.4.2
 
