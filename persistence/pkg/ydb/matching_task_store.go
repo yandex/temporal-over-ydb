@@ -18,6 +18,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/server/common/log"
 	p "go.temporal.io/server/common/persistence"
+	"go.temporal.io/server/common/primitives"
 
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/base/tokens"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn"
@@ -527,11 +528,170 @@ VALUES ($namespace_id, $task_queue_name, $task_queue_type, NULL, $expire_at, $ra
 	return &p.UpdateTaskQueueResponse{}, nil
 }
 
+// MaxListTaskQueuePageSize is the ydb server side limit.
+const MaxListTaskQueuePageSize = 1000
+
 func (d *MatchingTaskStore) ListTaskQueue(
-	_ context.Context,
-	_ *p.ListTaskQueueRequest,
-) (*p.InternalListTaskQueueResponse, error) {
-	return nil, serviceerror.NewUnavailable("unsupported operation")
+	ctx context.Context,
+	request *p.ListTaskQueueRequest,
+) (resp *p.InternalListTaskQueueResponse, err error) {
+	defer func() {
+		if err != nil {
+			err = conn.ConvertToTemporalError("ListTaskQueue", err)
+		}
+	}()
+
+	pageSize := int32(request.PageSize)
+	switch {
+	case pageSize < 0:
+		return nil, conn.NewRootCauseError(serviceerror.NewInvalidArgument,
+			fmt.Sprintf("ListTaskQueue: negative pageSize %d", pageSize))
+	case pageSize == 0:
+		pageSize = MaxListTaskQueuePageSize
+	case pageSize > MaxListTaskQueuePageSize:
+		return nil, conn.NewRootCauseError(serviceerror.NewInvalidArgument,
+			fmt.Sprintf("ListTaskQueue: pageSize %d exceeds max %d", pageSize, MaxListTaskQueuePageSize))
+	}
+
+	var pageToken tokens.ListTaskQueuePageToken
+	if err = pageToken.Deserialize(request.PageToken); err != nil {
+		return nil, err
+	}
+
+	cursorNamespaceID := d.client.EmptyNamespaceIDValue()
+	if pageToken.LastNamespaceID != "" {
+		cursorNamespaceID = d.client.NamespaceIDValue(pageToken.LastNamespaceID)
+	}
+
+	rows, err := d.listTaskQueuesPage(ctx, cursorNamespaceID, pageToken.LastTaskQueueName, pageToken.LastTaskQueueType, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	resp = &p.InternalListTaskQueueResponse{
+		Items: make([]*p.InternalListTaskQueueItem, 0, len(rows)),
+	}
+	for i := range rows {
+		row := &rows[i]
+		resp.Items = append(resp.Items, &p.InternalListTaskQueueItem{
+			TaskQueue: p.NewDataBlob(row.data, row.encoding),
+			RangeID:   row.rangeID,
+		})
+	}
+
+	if int32(len(rows)) == pageSize {
+		last := &rows[len(rows)-1]
+		nextPageToken := tokens.ListTaskQueuePageToken{
+			LastNamespaceID:   last.namespaceID,
+			LastTaskQueueName: last.taskQueueName,
+			LastTaskQueueType: last.taskQueueType,
+		}
+		if resp.NextPageToken, err = nextPageToken.Serialize(); err != nil {
+			return nil, err
+		}
+	}
+	return resp, nil
+}
+
+type taskQueueListRow struct {
+	namespaceID   string
+	taskQueueName string
+	taskQueueType int32
+	rangeID       int64
+	data          []byte
+	encoding      string
+}
+
+func (d *MatchingTaskStore) listTaskQueuesPage(
+	ctx context.Context,
+	cursorNamespaceID types.Value,
+	cursorTaskQueueName string,
+	cursorTaskQueueType int32,
+	pageSize int32,
+) (rows []taskQueueListRow, err error) {
+	template := d.client.AddQueryPrefix(`
+DECLARE $namespace_id_gt AS ` + d.client.NamespaceIDType().String() + `;
+DECLARE $task_queue_name_gt AS utf8;
+DECLARE $task_queue_type_gt AS int32;
+DECLARE $page_size AS int32;
+
+SELECT namespace_id, task_queue_name, task_queue_type, range_id, task_queue, task_queue_encoding
+FROM tasks_and_task_queues
+WHERE task_id IS NULL
+AND (
+    namespace_id > $namespace_id_gt
+    OR (namespace_id = $namespace_id_gt AND task_queue_name > $task_queue_name_gt)
+    OR (namespace_id = $namespace_id_gt AND task_queue_name = $task_queue_name_gt AND task_queue_type > $task_queue_type_gt)
+)
+ORDER BY namespace_id, task_queue_name, task_queue_type
+LIMIT $page_size;
+`)
+
+	// staleReadOnly can be answered by replicas without the leader.
+	// Should reduce database load. Consistency doesn't matter here
+	res, err := d.client.Do2(ctx, template, table.StaleReadOnlyTxControl(), func() *table.QueryParameters {
+		return table.NewQueryParameters(
+			table.ValueParam("$namespace_id_gt", cursorNamespaceID),
+			table.ValueParam("$task_queue_name_gt", types.UTF8Value(cursorTaskQueueName)),
+			table.ValueParam("$task_queue_type_gt", types.Int32Value(cursorTaskQueueType)),
+			table.ValueParam("$page_size", types.Int32Value(pageSize)),
+		)
+	}, table.WithIdempotent())
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err2 := res.Close()
+		if err == nil {
+			err = err2
+		}
+	}()
+	if err = res.NextResultSetErr(ctx); err != nil {
+		return nil, err
+	}
+
+	for res.NextRow() {
+		var row taskQueueListRow
+		var namespaceIDBytes primitives.UUID
+		var encodingType conn.EncodingTypeRaw
+
+		var namespaceIDScanner named.Value
+		if d.client.UseBytesForNamespaceIDs() {
+			namespaceIDScanner = named.OptionalWithDefault("namespace_id", &namespaceIDBytes)
+		} else {
+			namespaceIDScanner = named.OptionalWithDefault("namespace_id", &row.namespaceID)
+		}
+
+		var encodingScanner named.Value
+		if d.client.UseIntForEncoding() {
+			encodingScanner = named.OptionalWithDefault("task_queue_encoding", &encodingType)
+		} else {
+			encodingScanner = named.OptionalWithDefault("task_queue_encoding", &row.encoding)
+		}
+
+		if err = res.ScanNamed(
+			namespaceIDScanner,
+			named.OptionalWithDefault("task_queue_name", &row.taskQueueName),
+			named.OptionalWithDefault("task_queue_type", &row.taskQueueType),
+			named.OptionalWithDefault("range_id", &row.rangeID),
+			named.OptionalWithDefault("task_queue", &row.data),
+			encodingScanner,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan task queue: %w", err)
+		}
+		if d.client.UseBytesForNamespaceIDs() {
+			row.namespaceID = namespaceIDBytes.String()
+		}
+		if d.client.UseIntForEncoding() {
+			row.encoding = enumspb.EncodingType(encodingType).String()
+		}
+
+		rows = append(rows, row)
+	}
+	if err = res.Err(); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (d *MatchingTaskStore) DeleteTaskQueue(

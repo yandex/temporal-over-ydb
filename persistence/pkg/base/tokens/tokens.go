@@ -149,6 +149,24 @@ func (pt *MatchingTaskPageToken) Deserialize(payload []byte) error {
 	}
 }
 
+type ListTaskQueuePageToken struct {
+	LastNamespaceID   string
+	LastTaskQueueName string
+	LastTaskQueueType int32
+}
+
+func (pt *ListTaskQueuePageToken) Serialize() ([]byte, error) {
+	return json.Marshal(pt)
+}
+
+func (pt *ListTaskQueuePageToken) Deserialize(payload []byte) error {
+	if len(payload) > 0 {
+		return json.Unmarshal(payload, pt)
+	} else {
+		return nil
+	}
+}
+
 type ClusterMembersPageToken struct {
 	LastSeenHostID primitives.UUID
 }
