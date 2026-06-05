@@ -309,8 +309,6 @@ replace go.opentelemetry.io/otel/trace => go.opentelemetry.io/otel/trace v1.43.0
 
 replace golang.org/x/sys => golang.org/x/sys v0.43.0
 
-replace github.com/containerd/containerd/v2 => github.com/containerd/containerd/v2 v2.1.5
-
 replace github.com/docker/cli => github.com/docker/cli v25.0.4+incompatible
 
 replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.32.0
