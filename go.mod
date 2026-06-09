@@ -291,7 +291,7 @@ replace github.com/jackc/pgproto3/v2 => github.com/jackc/pgproto3/v2 v2.3.2
 
 replace github.com/mattn/go-sqlite3 => github.com/mattn/go-sqlite3 v1.14.24
 
-replace github.com/docker/docker => github.com/docker/docker v28.1.1+incompatible
+replace github.com/docker/docker => github.com/docker/docker v28.2.2+incompatible
 
 replace go.opentelemetry.io/otel => go.opentelemetry.io/otel v1.43.0
 
