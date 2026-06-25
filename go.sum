@@ -1053,8 +1053,8 @@ github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0 h1:5k3lQUusKyNHDAs93BoxHvGOnM
 github.com/ydb-platform/ydb-go-sdk-metrics v0.18.0/go.mod h1:x6R1sq4BdZPC7jcuKeH0anJotNAqpo1zIpQu/JNe/K8=
 github.com/ydb-platform/ydb-go-sdk/v3 v3.44.0/go.mod h1:oSLwnuilwIpaF5bJJMAofnGgzPJusoI3zWMNb8I+GnM=
 github.com/ydb-platform/ydb-go-sdk/v3 v3.47.3/go.mod h1:bWnOIcUHd7+Sl7DN+yhyY1H/I61z53GczvwJgXMgvj0=
-github.com/ydb-platform/ydb-go-sdk/v3 v3.139.5 h1:mTih9wy1RbI4PplGlFn/CMnkgxm1HzD/nKSdnNMy4pE=
-github.com/ydb-platform/ydb-go-sdk/v3 v3.139.5/go.mod h1:b9NEO6mgaiqsnOMkS003uS82XsKh6GL+ZTFfPqXWz+c=
+github.com/ydb-platform/ydb-go-sdk/v3 v3.141.1 h1:PrYjW94P31ue55DKsHdAZRaHY7owKBOSr31p5qISoZM=
+github.com/ydb-platform/ydb-go-sdk/v3 v3.141.1/go.mod h1:b9NEO6mgaiqsnOMkS003uS82XsKh6GL+ZTFfPqXWz+c=
 github.com/ydb-platform/ydb-go-yc v0.12.3 h1:LLNw5bX/T+ybJZyfNMnSn+T2cdPR6X1Fuho2CpaO8Hw=
 github.com/ydb-platform/ydb-go-yc v0.12.3/go.mod h1:vFYWfV2vSaQzpOCMckaVn6Q16VxnMC69EX9DbqypMtA=
 github.com/ydb-platform/ydb-go-yc-metadata v0.6.1 h1:9E5q8Nsy2RiJMZDNVy0A3KUrIMBPakJ2VgloeWbcI84=
