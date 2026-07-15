@@ -10,6 +10,7 @@ import (
 	ydbmetrics "github.com/ydb-platform/ydb-go-sdk-metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/balancers"
+	ydbconfig "github.com/ydb-platform/ydb-go-sdk/v3/config"
 	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 	"github.com/ydb-platform/ydb-go-sdk/v3/sugar"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
@@ -20,6 +21,8 @@ import (
 	"go.temporal.io/server/common/metrics"
 	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/config"
 	connlog "github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn/log"
@@ -128,7 +131,29 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 	}
 	opts = append(opts, ydb.WithBalancer(balancerConfig))
 
-	opts = append(opts, ydb.WithDialTimeout(10*time.Second))
+	if cfg.DBEndpointConnectParams != nil {
+		connectParams := grpc.ConnectParams{
+			MinConnectTimeout: cfg.DBEndpointConnectParams.MinConnectTimeout,
+		}
+		if cfg.DBEndpointConnectParams.Backoff != nil {
+			connectParams.Backoff = backoff.Config{
+				BaseDelay:  cfg.DBEndpointConnectParams.Backoff.BaseDelay,
+				Multiplier: cfg.DBEndpointConnectParams.Backoff.Multiplier,
+				Jitter:     cfg.DBEndpointConnectParams.Backoff.Jitter,
+				MaxDelay:   cfg.DBEndpointConnectParams.Backoff.MaxDelay,
+			}
+		}
+		opts = append(opts, ydb.With(ydbconfig.WithGrpcOptions(
+			grpc.WithConnectParams(connectParams),
+		)))
+	}
+
+	discoveryDialTimeout := cfg.DiscoveryDialTimeout
+	if discoveryDialTimeout == 0 {
+		discoveryDialTimeout = 10 * time.Second
+	}
+	opts = append(opts, ydb.WithDialTimeout(discoveryDialTimeout))
+
 	sessionPoolSizeLimit := cfg.SessionPoolSizeLimit
 	if sessionPoolSizeLimit > 0 {
 		opts = append(opts, ydb.WithSessionPoolSizeLimit(sessionPoolSizeLimit))
