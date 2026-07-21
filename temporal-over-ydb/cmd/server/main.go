@@ -137,6 +137,8 @@ func buildCLI() *cli.App {
 					return cli.Exit(fmt.Sprintf("Unable to instantiate claim mapper: %v.", err), 1)
 				}
 
+				dc := dynamicconfig.NewCollection(dynamicConfigClient, logger)
+
 				s, err := temporal.NewServer(
 					temporal.ForServices(services),
 					temporal.WithConfig(cfg),
@@ -147,7 +149,7 @@ func buildCLI() *cli.App {
 					temporal.WithClaimMapper(func(cfg *config.Config) authorization.ClaimMapper {
 						return claimMapper
 					}),
-					temporal.WithCustomDataStoreFactory(ydb.NewYDBAbstractDataStoreFactory()),
+					temporal.WithCustomDataStoreFactory(ydb.NewYDBAbstractDataStoreFactory(dc)),
 				)
 				if err != nil {
 					return cli.Exit(fmt.Sprintf("Unable to create server. Error: %v.", err), 1)

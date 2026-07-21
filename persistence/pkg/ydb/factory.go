@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"go.temporal.io/server/common/config"
+	"go.temporal.io/server/common/dynamicconfig"
 	"go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/log/tag"
 	"go.temporal.io/server/common/metrics"
@@ -29,6 +30,7 @@ type (
 		Client           *conn.Client
 		metricsHandler   metrics.Handler
 		taskCacheFactory cache.TaskCacheFactory
+		dc               *dynamicconfig.Collection
 
 		clientOptions []ydb.Option
 	}
@@ -52,6 +54,7 @@ func OptionsToYDBConfig(options map[string]any) (ydbconfig.Config, error) {
 
 type ydbAbstractDataStoreFactory struct {
 	ydbClientOptions []ydb.Option
+	dc               *dynamicconfig.Collection
 }
 
 // Option configures an ydbAbstractDataStoreFactory.
@@ -65,8 +68,8 @@ func WithYDBOptions(opts ...ydb.Option) Option {
 	}
 }
 
-func NewYDBAbstractDataStoreFactory(opts ...Option) client.AbstractDataStoreFactory {
-	f := &ydbAbstractDataStoreFactory{}
+func NewYDBAbstractDataStoreFactory(dc *dynamicconfig.Collection, opts ...Option) client.AbstractDataStoreFactory {
+	f := &ydbAbstractDataStoreFactory{dc: dc}
 	for _, opt := range opts {
 		opt(f)
 	}
@@ -86,6 +89,7 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 		clusterName,
 		logger,
 		metricsHandler,
+		f.dc,
 		f.ydbClientOptions,
 	)
 }
@@ -98,13 +102,14 @@ func NewFactory(
 	clusterName string,
 	logger log.Logger,
 	metricsHandler metrics.Handler,
+	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
 ) *Factory {
 	ydbCfg, err := OptionsToYDBConfig(cfg.Options)
 	if err != nil {
 		logger.Fatal("unable to initialize custom datastore config for YDB", tag.Error(err))
 	}
-	return NewFactoryFromYDBConfig(clusterName, ydbCfg, r, logger, metricsHandler, ydbClientOptions)
+	return NewFactoryFromYDBConfig(clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions)
 }
 
 func NewFactoryFromYDBConfig(
@@ -113,6 +118,7 @@ func NewFactoryFromYDBConfig(
 	r resolver.ServiceResolver,
 	logger log.Logger,
 	metricsHandler metrics.Handler,
+	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
 ) *Factory {
 	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
@@ -138,6 +144,7 @@ func NewFactoryFromYDBConfig(
 		Client:           ydbClient,
 		metricsHandler:   metricsHandler,
 		taskCacheFactory: taskCacheFactory,
+		dc:               dc,
 	}
 }
 
