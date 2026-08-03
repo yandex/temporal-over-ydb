@@ -440,14 +440,11 @@ AND namespace_id IS NULL
 AND workflow_id IS NULL
 AND run_id IS NULL
 AND task_category_id = $task_category_id
--- make sure it's TableRangesScan for YDB:
-AND task_id >= $task_id_gte
 AND task_visibility_ts >= $task_visibility_ts_gte
 AND task_visibility_ts < $task_visibility_ts_lt
 AND event_type IS NULL
 AND event_id IS NULL
 AND event_name IS NULL
--- refine the condition later:
 AND (task_visibility_ts > $task_visibility_ts_gte OR (task_visibility_ts = $task_visibility_ts_gte AND task_id >= $task_id_gte))
 ORDER BY shard_id, namespace_id, workflow_id, run_id, task_category_id, task_visibility_ts, task_id, event_type, event_id, event_name
 LIMIT $page_size;
