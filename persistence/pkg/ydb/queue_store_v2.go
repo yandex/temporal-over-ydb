@@ -181,7 +181,7 @@ func (s *QueueStoreV2) CreateQueue(ctx context.Context, request *persistence.Int
 DECLARE $queue_type AS Int32;
 DECLARE $queue_name AS Utf8;
 DECLARE $metadata_payload AS String;
-DECLARE $metadata_encoding AS Int16; 
+DECLARE $metadata_encoding AS Int16;
 DECLARE $version AS Int64;
 
 INSERT INTO queue_v2 (queue_type, queue_name, metadata_payload, metadata_encoding, version)
@@ -306,9 +306,9 @@ DECLARE $page_size AS Int32;
 
 SELECT queue_name, metadata_payload, metadata_encoding, version
 FROM queue_v2
-WHERE queue_type = $queue_type 
+WHERE queue_type = $queue_type
 AND queue_name > $queue_name
-ORDER BY queue_name ASC 
+ORDER BY queue_name ASC
 LIMIT $page_size;
 `)
 	res, err := s.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
@@ -358,15 +358,15 @@ LIMIT $page_size;
 		if err != nil {
 			return nil, err
 		}
-		nextMessageID, err := s.getNextMessageID(ctx, request.QueueType, queueName)
+		messageCount, lastMessageID, err := s.getMessageCountAndLastID(ctx, request.QueueType, queueName, partition)
 		if err != nil {
 			return nil, err
 		}
-		messageCount := nextMessageID - partition.MinMessageId
 		nextPageToken.LastReadQueueName = queueName
 		queues = append(queues, persistence.QueueInfo{
-			QueueName:    queueName,
-			MessageCount: messageCount,
+			QueueName:     queueName,
+			MessageCount:  messageCount,
+			LastMessageID: lastMessageID,
 		})
 	}
 	resp = &persistence.InternalListQueuesResponse{
@@ -497,6 +497,23 @@ func (s *QueueStoreV2) getNextMessageID(ctx context.Context, queueType persisten
 	return maxMessageID + 1, nil
 }
 
+func (s *QueueStoreV2) getMessageCountAndLastID(
+	ctx context.Context,
+	queueType persistence.QueueV2Type,
+	queueName string,
+	partition *persistencespb.QueuePartition,
+) (messageCount int64, lastMessageID int64, err error) {
+	maxMessageID, ok, err := s.getMaxMessageID(ctx, queueType, queueName)
+	if err != nil {
+		return 0, 0, err
+	}
+	if !ok {
+		return 0, persistence.EmptyQueueMessageID, nil
+	}
+
+	return maxMessageID - partition.MinMessageId + 1, maxMessageID, nil
+}
+
 func (s *QueueStoreV2) getMaxMessageID(ctx context.Context, queueType persistence.QueueV2Type, queueName string) (int64, bool, error) {
 	template := s.client.AddQueryPrefix(`
 DECLARE $queue_type AS Int32;
@@ -505,9 +522,9 @@ DECLARE $queue_partition AS Int32;
 
 SELECT message_id
 FROM queue_v2_message
-WHERE queue_type = $queue_type 
-AND queue_name = $queue_name 
-AND queue_partition = $queue_partition 
+WHERE queue_type = $queue_type
+AND queue_name = $queue_name
+AND queue_partition = $queue_partition
 ORDER BY message_id DESC LIMIT 1;
 `)
 	res, err := s.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
