@@ -129,6 +129,9 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 	if cfg.PreferLocalDC {
 		balancerConfig = balancers.PreferNearestDCWithFallBack(balancerConfig)
 	}
+	if cfg.DangerouslySkipDiscovery {
+		balancerConfig = balancers.SingleConn()
+	}
 	opts = append(opts, ydb.WithBalancer(balancerConfig))
 
 	if cfg.DBEndpointConnectParams != nil {
