@@ -121,10 +121,28 @@ func NewFactoryFromYDBConfig(
 	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
 ) *Factory {
-	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
-	ydbClient, err := conn.NewClient(context.Background(), ydbCfg, logger, metricsHandler, ydbClientOptions...)
+	f, err := OpenFactoryFromYDBConfig(
+		context.Background(), clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions)
 	if err != nil {
 		logger.Fatal("unable to initialize YDB session", tag.Error(err))
+	}
+	return f
+}
+
+func OpenFactoryFromYDBConfig(
+	ctx context.Context,
+	clusterName string,
+	ydbCfg ydbconfig.Config,
+	r resolver.ServiceResolver,
+	logger log.Logger,
+	metricsHandler metrics.Handler,
+	dc *dynamicconfig.Collection,
+	ydbClientOptions []ydb.Option,
+) (*Factory, error) {
+	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
+	ydbClient, err := conn.NewClient(ctx, ydbCfg, logger, metricsHandler, ydbClientOptions...)
+	if err != nil {
+		return nil, err
 	}
 	taskCacheFactory := cache.NewNoopTaskCacheFactory()
 	// if v := os.Getenv("TEMPORAL_YDBPGX_CACHE_CAPACITY"); v != "" {
@@ -145,7 +163,7 @@ func NewFactoryFromYDBConfig(
 		metricsHandler:   metricsHandler,
 		taskCacheFactory: taskCacheFactory,
 		dc:               dc,
-	}
+	}, nil
 }
 
 // NewTaskStore returns a new task store
