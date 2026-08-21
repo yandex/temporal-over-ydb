@@ -47,7 +47,6 @@ type Transaction interface {
 	HandleWorkflowSnapshot(workflowSnapshot *p.InternalWorkflowSnapshot)
 	HandleWorkflowMutation(workflowMutation *p.InternalWorkflowMutation)
 	InsertHistoryTasks(insertTasks map[tasks.Category][]p.InternalHistoryTask)
-	// UpsertHistoryTasks is used for migration purposes
 	UpsertHistoryTasks(tasks.Category, []p.InternalHistoryTask) error
 
 	DeleteBufferedEvents(namespaceID primitives.UUID, workflowID string, runID primitives.UUID)
