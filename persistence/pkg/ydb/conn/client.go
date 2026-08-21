@@ -7,10 +7,10 @@ import (
 	"time"
 
 	ydbenv "github.com/ydb-platform/ydb-go-sdk-auth-environ"
-	ydbmetrics "github.com/ydb-platform/ydb-go-sdk-metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3"
 	"github.com/ydb-platform/ydb-go-sdk/v3/balancers"
 	ydbconfig "github.com/ydb-platform/ydb-go-sdk/v3/config"
+	ydbmetrics "github.com/ydb-platform/ydb-go-sdk/v3/metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3/query"
 	"github.com/ydb-platform/ydb-go-sdk/v3/sugar"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/ydb-platform/ydb-go-sdk-metrics/registry"
+	registry "github.com/ydb-platform/ydb-go-sdk/v3/metrics"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 	"go.temporal.io/server/common/metrics"
 )
