@@ -1,6 +1,6 @@
 module github.com/yandex/temporal-over-ydb
 
-go 1.26.3
+go 1.27.1
 
 require (
 	github.com/mitchellh/mapstructure v1.5.1-0.20231216201459-8508981c8b6c
