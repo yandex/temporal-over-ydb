@@ -18,7 +18,6 @@ import (
 	"go.temporal.io/server/temporal"
 
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb"
-	ydbrows "github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/rows"
 )
 
 func main() {
@@ -93,9 +92,6 @@ func buildCLI() *cli.App {
 					return cli.Exit(fmt.Sprintf("Unable to load configuration: %v.", err), 1)
 				}
 
-				// XXX
-				ydbrows.NumHistoryShards = int(cfg.Persistence.NumHistoryShards)
-
 				logger := log.NewZapLogger(log.BuildZapLogger(cfg.Log))
 				logger.Info("Build info.",
 					tag.NewTimeTag("git-time", build.InfoData.GitTime),
@@ -149,7 +145,10 @@ func buildCLI() *cli.App {
 					temporal.WithClaimMapper(func(cfg *config.Config) authorization.ClaimMapper {
 						return claimMapper
 					}),
-					temporal.WithCustomDataStoreFactory(ydb.NewYDBAbstractDataStoreFactory(dc)),
+					temporal.WithCustomDataStoreFactory(ydb.NewYDBAbstractDataStoreFactory(
+						dc,
+						ydb.WithNumHistoryShards(cfg.Persistence.NumHistoryShards),
+					)),
 				)
 				if err != nil {
 					return cli.Exit(fmt.Sprintf("Unable to create server. Error: %v.", err), 1)

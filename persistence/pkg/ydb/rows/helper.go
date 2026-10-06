@@ -10,12 +10,10 @@ import (
 
 const SlowDeleteBatchSize = 10000
 
-var NumHistoryShards = 1024
-
-func ToShardIDColumnValue(shardID int32) uint32 {
+func ToShardIDColumnValue(shardID, numHistoryShards int32) uint32 {
 	// Uniformly spread shard across (0, math.MaxUint32) interval
-	step := math.MaxUint32/NumHistoryShards - 1
-	return uint32(shardID * int32(step))
+	step := uint32(math.MaxUint32)/uint32(numHistoryShards) - 1
+	return uint32(shardID) * step
 }
 
 func structNullValue(name string, t types.Type) types.StructValueOption {
@@ -55,7 +53,7 @@ func (f *transactionImpl) getNullStructFieldValues() map[string]types.StructValu
 
 func (f *transactionImpl) createExecutionsTableRow(shardID int32, fields map[string]types.Value) types.Value {
 	rv := make([]types.StructValueOption, 0, len(fields)+1)
-	rv = append(rv, types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(shardID))))
+	rv = append(rv, types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(shardID, f.numHistoryShards))))
 	for k, nullValue := range f.getNullStructFieldValues() {
 		if value, ok := fields[k]; ok {
 			rv = append(rv, types.StructFieldValue(k, types.OptionalValue(value)))

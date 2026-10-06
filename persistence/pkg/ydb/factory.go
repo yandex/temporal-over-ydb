@@ -31,6 +31,7 @@ type (
 		metricsHandler   metrics.Handler
 		taskCacheFactory cache.TaskCacheFactory
 		dc               *dynamicconfig.Collection
+		numHistoryShards int32
 
 		clientOptions []ydb.Option
 	}
@@ -54,6 +55,7 @@ func OptionsToYDBConfig(options map[string]any) (ydbconfig.Config, error) {
 
 type ydbAbstractDataStoreFactory struct {
 	ydbClientOptions []ydb.Option
+	numHistoryShards int32
 	dc               *dynamicconfig.Collection
 }
 
@@ -68,8 +70,25 @@ func WithYDBOptions(opts ...ydb.Option) Option {
 	}
 }
 
+// WithNumHistoryShards sets the history shard count used to encode YDB shard keys.
+// It must match the server's history shard count and remain unchanged for an existing database.
+// Omitting this option preserves the legacy default of 1024 shards.
+// WithNumHistoryShards panics if numHistoryShards is not positive.
+func WithNumHistoryShards(numHistoryShards int32) Option {
+	if numHistoryShards <= 0 {
+		panic("number of history shards must be positive")
+	}
+	return func(f *ydbAbstractDataStoreFactory) {
+		f.numHistoryShards = numHistoryShards
+	}
+}
+
 func NewYDBAbstractDataStoreFactory(dc *dynamicconfig.Collection, opts ...Option) client.AbstractDataStoreFactory {
-	f := &ydbAbstractDataStoreFactory{dc: dc}
+	return newYDBAbstractDataStoreFactory(dc, opts...)
+}
+
+func newYDBAbstractDataStoreFactory(dc *dynamicconfig.Collection, opts ...Option) *ydbAbstractDataStoreFactory {
+	f := &ydbAbstractDataStoreFactory{dc: dc, numHistoryShards: 1024}
 	for _, opt := range opts {
 		opt(f)
 	}
@@ -91,6 +110,7 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 		metricsHandler,
 		f.dc,
 		f.ydbClientOptions,
+		WithNumHistoryShards(f.numHistoryShards),
 	)
 }
 
@@ -104,12 +124,13 @@ func NewFactory(
 	metricsHandler metrics.Handler,
 	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
+	opts ...Option,
 ) *Factory {
 	ydbCfg, err := OptionsToYDBConfig(cfg.Options)
 	if err != nil {
 		logger.Fatal("unable to initialize custom datastore config for YDB", tag.Error(err))
 	}
-	return NewFactoryFromYDBConfig(clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions)
+	return NewFactoryFromYDBConfig(clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions, opts...)
 }
 
 func NewFactoryFromYDBConfig(
@@ -120,9 +141,10 @@ func NewFactoryFromYDBConfig(
 	metricsHandler metrics.Handler,
 	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
+	opts ...Option,
 ) *Factory {
 	f, err := OpenFactoryFromYDBConfig(
-		context.Background(), clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions)
+		context.Background(), clusterName, ydbCfg, r, logger, metricsHandler, dc, ydbClientOptions, opts...)
 	if err != nil {
 		logger.Fatal("unable to initialize YDB session", tag.Error(err))
 	}
@@ -138,7 +160,10 @@ func OpenFactoryFromYDBConfig(
 	metricsHandler metrics.Handler,
 	dc *dynamicconfig.Collection,
 	ydbClientOptions []ydb.Option,
+	opts ...Option,
 ) (*Factory, error) {
+	options := newYDBAbstractDataStoreFactory(dc, opts...)
+	ydbClientOptions = append(ydbClientOptions, options.ydbClientOptions...)
 	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
 	ydbClient, err := conn.NewClient(ctx, ydbCfg, logger, metricsHandler, ydbClientOptions...)
 	if err != nil {
@@ -163,6 +188,7 @@ func OpenFactoryFromYDBConfig(
 		metricsHandler:   metricsHandler,
 		taskCacheFactory: taskCacheFactory,
 		dc:               dc,
+		numHistoryShards: options.numHistoryShards,
 	}, nil
 }
 
@@ -184,7 +210,7 @@ func (f *Factory) NewMirroringTaskStore() (p.TaskStore, error) {
 
 // NewShardStore returns a new shard store
 func (f *Factory) NewShardStore() (p.ShardStore, error) {
-	return NewShardStore(f.clusterName, f.Client, f.logger), nil
+	return NewShardStore(f.clusterName, f.Client, f.logger, f.numHistoryShards), nil
 }
 
 // NewMetadataStore returns a metadata store
@@ -209,7 +235,7 @@ func (f *Factory) NewMirroringClusterMetadataStore() (*MirroringClusterMetadataS
 
 // NewExecutionStore returns a new ExecutionStore.
 func (f *Factory) NewExecutionStore() (p.ExecutionStore, error) {
-	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.taskCacheFactory), nil
+	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.taskCacheFactory, f.numHistoryShards), nil
 }
 
 // NewQueue returns a new queue backed by YDB

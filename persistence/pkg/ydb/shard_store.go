@@ -21,10 +21,11 @@ import (
 
 type (
 	ShardStore struct {
-		clusterName string
-		client      *conn.Client
-		logger      log.Logger
-		tf          executor.TransactionFactory
+		clusterName      string
+		client           *conn.Client
+		numHistoryShards int32
+		logger           log.Logger
+		tf               executor.TransactionFactory
 	}
 )
 
@@ -32,13 +33,15 @@ func NewShardStore(
 	clusterName string,
 	client *conn.Client,
 	logger log.Logger,
+	numHistoryShards int32,
 ) *ShardStore {
-	tf := rows.NewTransactionFactory(client)
+	tf := rows.NewTransactionFactory(client, numHistoryShards)
 	return &ShardStore{
-		clusterName: clusterName,
-		client:      client,
-		logger:      logger,
-		tf:          tf,
+		clusterName:      clusterName,
+		client:           client,
+		numHistoryShards: numHistoryShards,
+		logger:           logger,
+		tf:               tf,
 	}
 }
 
@@ -84,7 +87,7 @@ INSERT INTO executions (shard_id, namespace_id, workflow_id, run_id, task_id, ta
 VALUES ($shard_id, "", "", "", NULL, NULL, NULL, NULL, NULL, NULL, $range_id, $shard, $shard_encoding);
 `)
 	err = d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
 		table.ValueParam("$shard", types.BytesValue(shardInfo.Data)),
 		table.ValueParam("$shard_encoding", d.client.EncodingTypeValue(shardInfo.EncodingType)),
 		table.ValueParam("$range_id", types.Int64Value(rangeID)),
@@ -156,7 +159,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `)
 	res, err := d.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
 	), table.WithIdempotent())
 	if err != nil {
 		return nil, err

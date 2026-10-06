@@ -25,10 +25,11 @@ import (
 
 type (
 	MutableStateStore struct {
-		client    *conn.Client
-		logger    log.Logger
-		baseStore *mss.BaseMutableStateStore
-		tf        executor.TransactionFactory
+		client           *conn.Client
+		numHistoryShards int32
+		logger           log.Logger
+		baseStore        *mss.BaseMutableStateStore
+		tf               executor.TransactionFactory
 	}
 )
 
@@ -36,13 +37,15 @@ func NewMutableStateStore(
 	client *conn.Client,
 	logger log.Logger,
 	cache executor.EventsCache,
+	numHistoryShards int32,
 ) *MutableStateStore {
-	tf := rows.NewTransactionFactory(client)
+	tf := rows.NewTransactionFactory(client, numHistoryShards)
 	return &MutableStateStore{
-		client:    client,
-		logger:    logger,
-		baseStore: mss.NewBaseMutableStateStore(cache),
-		tf:        tf,
+		client:           client,
+		numHistoryShards: numHistoryShards,
+		logger:           logger,
+		baseStore:        mss.NewBaseMutableStateStore(cache),
+		tf:               tf,
 	}
 }
 
@@ -106,7 +109,7 @@ AND task_category_id IS NULL
 AND task_visibility_ts IS NULL;
 `)
 	res, err := d.client.Query(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
 		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
 		table.ValueParam("$workflow_id", types.UTF8Value(request.WorkflowID)),
 		table.ValueParam("$run_id", d.client.RunIDValue(request.RunID)),
@@ -152,7 +155,7 @@ AND task_visibility_ts IS NULL
 ;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
 		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
 		table.ValueParam("$workflow_id", types.UTF8Value(request.WorkflowID)),
 		table.ValueParam("$run_id", d.client.RunIDValue(request.RunID)),
@@ -186,7 +189,7 @@ AND event_name IS NULL
 AND current_run_id = $current_run_id;
 	`)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
 		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
 		table.ValueParam("$workflow_id", types.UTF8Value(request.WorkflowID)),
 		table.ValueParam("$run_id", d.client.EmptyRunIDValue()),
@@ -227,7 +230,7 @@ AND event_name IS NULL
 LIMIT 1;
 `)
 	res, err := d.client.Do(ctx, query, table.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
 		table.ValueParam("$namespace_id", d.client.NamespaceIDValue(request.NamespaceID)),
 		table.ValueParam("$workflow_id", types.UTF8Value(request.WorkflowID)),
 		table.ValueParam("$run_id", d.client.EmptyRunIDValue()),
