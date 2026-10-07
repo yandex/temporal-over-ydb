@@ -31,14 +31,15 @@ func NewExecutionStore(
 	metricsHandler metrics.Handler,
 	taskCacheFactory cache.TaskCacheFactory,
 	numHistoryShards int32,
+	useRawShardIDs bool,
 ) *ExecutionStore {
 	eventsCache := cache.NewEventsCache(taskCacheFactory)
 	return &ExecutionStore{
 		metricsHandler:        metricsHandler,
 		enableDebugMetrics:    true, // TODO
 		HistoryStore:          NewHistoryStore(client, logger),
-		MutableStateStore:     NewMutableStateStore(client, logger, eventsCache, numHistoryShards),
-		MutableStateTaskStore: NewMutableStateTaskStore(client, logger, eventsCache, taskCacheFactory, numHistoryShards),
+		MutableStateStore:     NewMutableStateStore(client, logger, eventsCache, numHistoryShards, useRawShardIDs),
+		MutableStateTaskStore: NewMutableStateTaskStore(client, logger, eventsCache, taskCacheFactory, numHistoryShards, useRawShardIDs),
 	}
 }
 

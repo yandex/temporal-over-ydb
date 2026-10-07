@@ -26,6 +26,7 @@ type transactionImpl struct {
 	assertions       []assertion
 	shardID          int32
 	numHistoryShards int32
+	useRawShardIDs   bool
 
 	ExecutionsTableRowsToInsert           []types.Value
 	ExecutionsStateItemsTableRowsToDelete []types.Value
@@ -40,7 +41,7 @@ func (f *transactionImpl) createHistoryTaskRows(category tasks.Category, history
 	for _, t := range historyTasks {
 		if isScheduledTask {
 			rows = append(rows, createStructValue(map[string]types.Value{
-				"shard_id":           types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards)),
+				"shard_id":           types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs)),
 				"task_category_id":   types.OptionalValue(types.Int32Value(int32(category.ID()))),
 				"task_visibility_ts": types.OptionalValue(types.TimestampValueFromTime(conn.ToYDBDateTime(t.Key.FireTime))),
 				"task_id":            types.OptionalValue(types.Int64Value(t.Key.TaskID)),
@@ -49,7 +50,7 @@ func (f *transactionImpl) createHistoryTaskRows(category tasks.Category, history
 			}))
 		} else {
 			rows = append(rows, createStructValue(map[string]types.Value{
-				"shard_id":           types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards)),
+				"shard_id":           types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs)),
 				"task_category_id":   types.OptionalValue(types.Int32Value(int32(category.ID()))),
 				"task_visibility_ts": types.NullValue(types.TypeTimestamp),
 				"task_id":            types.OptionalValue(types.Int64Value(t.Key.TaskID)),
@@ -109,7 +110,7 @@ func (f *transactionImpl) getBufferedEventItemRow(namespaceID primitives.UUID, w
 
 func (f *transactionImpl) getIdentifiedStateItemKey(namespaceID primitives.UUID, workflowID string, runID primitives.UUID, itemType int32, itemID int64) types.Value {
 	return types.StructValue(
-		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards))),
+		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs))),
 		types.StructFieldValue("namespace_id", f.client.NamespaceIDValueFromUUID(namespaceID)),
 		types.StructFieldValue("workflow_id", types.UTF8Value(workflowID)),
 		types.StructFieldValue("run_id", f.client.RunIDValueFromUUID(runID)),
@@ -121,7 +122,7 @@ func (f *transactionImpl) getIdentifiedStateItemKey(namespaceID primitives.UUID,
 
 func (f *transactionImpl) getNamedStateItemKey(namespaceID primitives.UUID, workflowID string, runID primitives.UUID, itemType int32, itemName string) types.Value {
 	return types.StructValue(
-		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards))),
+		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs))),
 		types.StructFieldValue("namespace_id", f.client.NamespaceIDValueFromUUID(namespaceID)),
 		types.StructFieldValue("workflow_id", types.UTF8Value(workflowID)),
 		types.StructFieldValue("run_id", f.client.RunIDValueFromUUID(runID)),
@@ -133,7 +134,7 @@ func (f *transactionImpl) getNamedStateItemKey(namespaceID primitives.UUID, work
 
 func (f *transactionImpl) getSignalRequestedItemKey(namespaceID primitives.UUID, workflowID string, runID primitives.UUID, signalRequestedID string) types.Value {
 	return types.StructValue(
-		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards))),
+		types.StructFieldValue("shard_id", types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs))),
 		types.StructFieldValue("namespace_id", f.client.NamespaceIDValueFromUUID(namespaceID)),
 		types.StructFieldValue("workflow_id", types.UTF8Value(workflowID)),
 		types.StructFieldValue("run_id", f.client.RunIDValueFromUUID(runID)),
@@ -311,7 +312,7 @@ func (f *transactionImpl) HandleWorkflowSnapshot(snapshot *p.InternalWorkflowSna
 func (f *transactionImpl) DeleteBufferedEvents(namespaceID primitives.UUID, workflowID string, runID primitives.UUID) {
 	f.DeleteQueries = append(f.DeleteQueries, conn.NewQueryPart(
 		map[string]types.Value{
-			"shard_id":            types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards)),
+			"shard_id":            types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs)),
 			"namespace_id":        f.client.NamespaceIDValueFromUUID(namespaceID),
 			"workflow_id":         types.UTF8Value(workflowID),
 			"run_id":              f.client.RunIDValueFromUUID(runID),
@@ -334,7 +335,7 @@ AND event_type = $%[1]sbuffered_event_type;
 func (f *transactionImpl) DeleteStateItems(namespaceID primitives.UUID, workflowID string, runID primitives.UUID) {
 	f.DeleteQueries = append(f.DeleteQueries, conn.NewQueryPart(
 		map[string]types.Value{
-			"shard_id":     types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards)),
+			"shard_id":     types.Uint32Value(ToShardIDColumnValue(f.shardID, f.numHistoryShards, f.useRawShardIDs)),
 			"namespace_id": f.client.NamespaceIDValueFromUUID(namespaceID),
 			"workflow_id":  types.UTF8Value(workflowID),
 			"run_id":       f.client.RunIDValueFromUUID(runID),
@@ -464,7 +465,7 @@ func (f *transactionImpl) Execute(ctx context.Context) error {
 	for _, a := range f.assertions {
 		yqlParts = append(yqlParts, a.toMissingRowVarAssignment())
 		yqlParts = append(yqlParts, a.toRowVarAssignment())
-		params = append(params, a.toParams(f.numHistoryShards)...)
+		params = append(params, a.toParams(f.numHistoryShards, f.useRawShardIDs)...)
 		incorrectVarAssignmentParts = append(incorrectVarAssignmentParts, a.toInvalidConditionQuery())
 	}
 	incorrectVarAssignmentTail := ")) WHERE correct = false;"

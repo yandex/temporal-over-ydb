@@ -54,6 +54,7 @@ func OptionsToYDBConfig(options map[string]any) (ydbconfig.Config, error) {
 }
 
 type ydbAbstractDataStoreFactory struct {
+	useRawShardIDs   bool
 	ydbClientOptions []ydb.Option
 	numHistoryShards int32
 	dc               *dynamicconfig.Collection
@@ -80,6 +81,16 @@ func WithNumHistoryShards(numHistoryShards int32) Option {
 	}
 	return func(f *ydbAbstractDataStoreFactory) {
 		f.numHistoryShards = numHistoryShards
+	}
+}
+
+// WithRawShardIDs enables storing original shard IDs without spreading them across
+// the Uint32 range when enabled is true. Raw shard IDs are used if enabled here
+// or through the use_raw_shard_ids datastore option.
+// The encoding mode must remain unchanged for an existing database.
+func WithRawShardIDs(enabled bool) Option {
+	return func(f *ydbAbstractDataStoreFactory) {
+		f.useRawShardIDs = enabled
 	}
 }
 
@@ -111,6 +122,7 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 		f.dc,
 		f.ydbClientOptions,
 		WithNumHistoryShards(f.numHistoryShards),
+		WithRawShardIDs(f.useRawShardIDs),
 	)
 }
 
@@ -163,6 +175,7 @@ func OpenFactoryFromYDBConfig(
 	opts ...Option,
 ) (*Factory, error) {
 	options := newYDBAbstractDataStoreFactory(dc, opts...)
+	ydbCfg.UseRawShardIDs = ydbCfg.UseRawShardIDs || options.useRawShardIDs
 	ydbClientOptions = append(ydbClientOptions, options.ydbClientOptions...)
 	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
 	ydbClient, err := conn.NewClient(ctx, ydbCfg, logger, metricsHandler, ydbClientOptions...)
@@ -210,7 +223,7 @@ func (f *Factory) NewMirroringTaskStore() (p.TaskStore, error) {
 
 // NewShardStore returns a new shard store
 func (f *Factory) NewShardStore() (p.ShardStore, error) {
-	return NewShardStore(f.clusterName, f.Client, f.logger, f.numHistoryShards), nil
+	return NewShardStore(f.clusterName, f.Client, f.logger, f.numHistoryShards, f.cfg.UseRawShardIDs), nil
 }
 
 // NewMetadataStore returns a metadata store
@@ -235,7 +248,7 @@ func (f *Factory) NewMirroringClusterMetadataStore() (*MirroringClusterMetadataS
 
 // NewExecutionStore returns a new ExecutionStore.
 func (f *Factory) NewExecutionStore() (p.ExecutionStore, error) {
-	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.taskCacheFactory, f.numHistoryShards), nil
+	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.taskCacheFactory, f.numHistoryShards, f.cfg.UseRawShardIDs), nil
 }
 
 // NewQueue returns a new queue backed by YDB

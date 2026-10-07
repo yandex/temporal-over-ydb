@@ -27,6 +27,7 @@ type (
 	MutableStateTaskStore struct {
 		client           *conn.Client
 		numHistoryShards int32
+		useRawShardIDs   bool
 		logger           log.Logger
 		tf               executor.TransactionFactory
 		cache            executor.EventsCache
@@ -40,11 +41,13 @@ func NewMutableStateTaskStore(
 	cache executor.EventsCache,
 	taskCacheFactory cache.TaskCacheFactory,
 	numHistoryShards int32,
+	useRawShardIDs bool,
 ) *MutableStateTaskStore {
-	tf := rows.NewTransactionFactory(client, numHistoryShards)
+	tf := rows.NewTransactionFactory(client, numHistoryShards, useRawShardIDs)
 	return &MutableStateTaskStore{
 		client:           client,
 		numHistoryShards: numHistoryShards,
+		useRawShardIDs:   useRawShardIDs,
 		logger:           logger,
 		tf:               tf,
 		cache:            cache,
@@ -134,7 +137,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `)
 	return d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id", types.Int64Value(taskID)),
 	))
@@ -161,7 +164,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `)
 	return d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id", types.Int64Value(taskID)),
 		table.ValueParam("$task_visibility_ts", types.TimestampValueFromTime(conn.ToYDBDateTime(visibilityTS))),
@@ -201,7 +204,7 @@ RETURNING task_id
 	for {
 		more, err := func() (more bool, err error) {
 			res, err := d.client.Do(ctx, template, table.SerializableReadWriteTxControl(table.CommitTx()), table.NewQueryParameters(
-				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 				table.ValueParam("$task_category_id", types.Int32Value(int32(categoryID))),
 				table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 				table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
@@ -254,7 +257,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 		table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
@@ -301,7 +304,7 @@ RETURNING task_id
 	for {
 		more, err := func() (more bool, err error) {
 			res, err := d.client.Do(ctx, template, table.SerializableReadWriteTxControl(table.CommitTx()), table.NewQueryParameters(
-				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+				table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 				table.ValueParam("$task_category_id", types.Int32Value(int32(categoryID))),
 				table.ValueParam("$task_visibility_ts_gte", types.TimestampValueFromTime(conn.ToYDBDateTime(inclusiveMinVisibilityTS))),
 				table.ValueParam("$task_visibility_ts_lt", types.TimestampValueFromTime(conn.ToYDBDateTime(exclusiveMaxVisibilityTS))),
@@ -356,7 +359,7 @@ AND event_id IS NULL
 AND event_name IS NULL;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_visibility_ts_gte", types.TimestampValueFromTime(conn.ToYDBDateTime(inclusiveMinVisibilityTS))),
 		table.ValueParam("$task_visibility_ts_lt", types.TimestampValueFromTime(conn.ToYDBDateTime(exclusiveMaxVisibilityTS))),
@@ -396,7 +399,7 @@ ORDER BY shard_id, namespace_id, workflow_id, run_id, task_category_id, task_vis
 LIMIT $page_size;
 `)
 	res, err := d.client.Do(ctx, template, table.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 		table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
@@ -453,7 +456,7 @@ ORDER BY shard_id, namespace_id, workflow_id, run_id, task_category_id, task_vis
 LIMIT $page_size;
 `)
 	res, err := d.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(shardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$task_category_id", types.Int32Value(categoryID)),
 		table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 		table.ValueParam("$task_visibility_ts_gte", types.TimestampValueFromTime(conn.ToYDBDateTime(inclusiveMinVisibilityTS))),
@@ -506,7 +509,7 @@ VALUES ($shard_id, $source_cluster_name, $task_id, $data, $encoding)
 		return err
 	}
 	return d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$source_cluster_name", types.UTF8Value(request.SourceClusterName)),
 		table.ValueParam("$task_id", types.Int64Value(request.TaskInfo.TaskId)),
 		table.ValueParam("$data", types.BytesValue(blob.Data)),
@@ -544,7 +547,7 @@ ORDER BY task_id
 LIMIT $page_size;
 `)
 	res, err := d.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$source_cluster_name", types.UTF8Value(request.SourceClusterName)),
 		table.ValueParam("$task_id_gte", types.Int64Value(inclusiveMinTaskID)),
 		table.ValueParam("$task_id_lt", types.Int64Value(exclusiveMaxTaskID)),
@@ -599,7 +602,7 @@ AND source_cluster_name = $source_cluster_name
 AND task_id = $task_id;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$source_cluster_name", types.UTF8Value(request.SourceClusterName)),
 		table.ValueParam("$task_id", types.Int64Value(request.TaskKey.TaskID)),
 	))
@@ -623,7 +626,7 @@ AND task_id >= $task_id_gte
 AND task_id < $task_id_lt;
 `)
 	err := d.client.Write(ctx, template, table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$source_cluster_name", types.UTF8Value(request.SourceClusterName)),
 		table.ValueParam("$task_id_gte", types.Int64Value(request.InclusiveMinTaskKey.TaskID)),
 		table.ValueParam("$task_id_lt", types.Int64Value(request.ExclusiveMaxTaskKey.TaskID)),
@@ -652,7 +655,7 @@ AND task_id >= $task_id_gte
 LIMIT 1;
 `)
 	res, err := d.client.Do(ctx, template, conn.OnlineReadOnlyTxControl(), table.NewQueryParameters(
-		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards))),
+		table.ValueParam("$shard_id", types.Uint32Value(rows.ToShardIDColumnValue(request.ShardID, d.numHistoryShards, d.useRawShardIDs))),
 		table.ValueParam("$source_cluster_name", types.UTF8Value(request.SourceClusterName)),
 		table.ValueParam("$task_id_gte", types.Int64Value(request.InclusiveMinTaskKey.TaskID)),
 	), table.WithIdempotent())

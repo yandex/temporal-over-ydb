@@ -78,8 +78,8 @@ func (cond *shardAssertion) toRowQuery() string {
 	return fmt.Sprintf("SELECT * FROM AS_TABLE(ListNotNull(AsList($%[1]sshard_row))) WHERE $incorrect > 0;", cond.Prefix)
 }
 
-func (cond *shardAssertion) toParams(numHistoryShards int32) (rv []table.ParameterOption) {
-	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards))))
+func (cond *shardAssertion) toParams(numHistoryShards int32, useRawShardIDs bool) (rv []table.ParameterOption) {
+	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards, useRawShardIDs))))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"expected_range_id", types.Int64Value(cond.RangeIDEqualTo)))
 	return rv
 }
@@ -153,8 +153,8 @@ func (cond *currentWorkflowAssertion) toMissingRowVarAssignment() string {
 	}
 }
 
-func (cond *currentWorkflowAssertion) toParams(numHistoryShards int32) (rv []table.ParameterOption) {
-	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards))))
+func (cond *currentWorkflowAssertion) toParams(numHistoryShards int32, useRawShardIDs bool) (rv []table.ParameterOption) {
+	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards, useRawShardIDs))))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"namespace_id", cond.client.NamespaceIDValueFromUUID(cond.NamespaceID)))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"workflow_id", types.UTF8Value(cond.WorkflowID)))
 	if cond.MustNotExist {
@@ -397,8 +397,8 @@ func (cond *workflowExecutionAssertion) toInvalidConditionQuery() string {
 	return fmt.Sprintf("Coalesce($%[1]srun_row, $%[1]smissing_run_row)", cond.Prefix)
 }
 
-func (cond *workflowExecutionAssertion) toParams(numHistoryShards int32) (rv []table.ParameterOption) {
-	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards))))
+func (cond *workflowExecutionAssertion) toParams(numHistoryShards int32, useRawShardIDs bool) (rv []table.ParameterOption) {
+	rv = append(rv, table.ValueParam("$"+cond.Prefix+"shard_id", types.Uint32Value(ToShardIDColumnValue(cond.ShardID, numHistoryShards, useRawShardIDs))))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"namespace_id", cond.client.NamespaceIDValueFromUUID(cond.NamespaceID)))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"workflow_id", types.UTF8Value(cond.WorkflowID)))
 	rv = append(rv, table.ValueParam("$"+cond.Prefix+"run_id", cond.client.RunIDValueFromUUID(cond.RunID)))
@@ -464,7 +464,7 @@ type assertion interface {
 	toRowVarAssignment() string
 	toInvalidConditionQuery() string
 	extractError(res result.Result) error
-	toParams(numHistoryShards int32) (rv []table.ParameterOption)
+	toParams(numHistoryShards int32, useRawShardIDs bool) (rv []table.ParameterOption)
 	toRowQuery() string
 }
 

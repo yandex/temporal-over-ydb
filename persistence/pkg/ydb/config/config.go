@@ -28,6 +28,8 @@ type Config struct {
 	DBEndpointConnectParams *DBEndpointConnectParamsConfig `yaml:"db_endpoint_connect_params" mapstructure:"db_endpoint_connect_params"`
 	DiscoveryDialTimeout    time.Duration                  `yaml:"discovery_dial_timeout" mapstructure:"discovery_dial_timeout"`
 	UseOldTypes             bool
+	// UseRawShardIDs stores original shard IDs without spreading them across the Uint32 range.
+	UseRawShardIDs bool `yaml:"use_raw_shard_ids" mapstructure:"use_raw_shard_ids"`
 	// DangerouslySkipDiscovery opens the driver against the configured endpoint alone. Cluster discovery
 	// is the only thing the driver does over the network at startup, and it blocks until it succeeds,
 	// so skipping it is what lets the process come up while YDB is unreachable. Everything discovery

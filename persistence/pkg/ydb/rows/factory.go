@@ -8,12 +8,14 @@ import (
 type transactionFactoryImpl struct {
 	client           *conn.Client
 	numHistoryShards int32
+	useRawShardIDs   bool
 }
 
-func NewTransactionFactory(client *conn.Client, numHistoryShards int32) executor.TransactionFactory {
+func NewTransactionFactory(client *conn.Client, numHistoryShards int32, useRawShardIDs bool) executor.TransactionFactory {
 	return &transactionFactoryImpl{
 		client:           client,
 		numHistoryShards: numHistoryShards,
+		useRawShardIDs:   useRawShardIDs,
 	}
 }
 
@@ -21,6 +23,7 @@ func (e *transactionFactoryImpl) NewTransaction(shardID int32) executor.Transact
 	return &transactionImpl{
 		client:           e.client,
 		numHistoryShards: e.numHistoryShards,
+		useRawShardIDs:   e.useRawShardIDs,
 		shardID:          shardID,
 	}
 }
