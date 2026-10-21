@@ -9,7 +9,6 @@ import (
 	"go.temporal.io/server/common/metrics"
 	p "go.temporal.io/server/common/persistence"
 
-	"github.com/yandex/temporal-over-ydb/persistence/pkg/cache"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn"
 )
 
@@ -29,17 +28,15 @@ func NewExecutionStore(
 	client *conn.Client,
 	logger log.Logger,
 	metricsHandler metrics.Handler,
-	taskCacheFactory cache.TaskCacheFactory,
 	numHistoryShards int32,
 	useRawShardIDs bool,
 ) *ExecutionStore {
-	eventsCache := cache.NewEventsCache(taskCacheFactory)
 	return &ExecutionStore{
 		metricsHandler:        metricsHandler,
 		enableDebugMetrics:    true, // TODO
 		HistoryStore:          NewHistoryStore(client, logger),
-		MutableStateStore:     NewMutableStateStore(client, logger, eventsCache, numHistoryShards, useRawShardIDs),
-		MutableStateTaskStore: NewMutableStateTaskStore(client, logger, eventsCache, taskCacheFactory, numHistoryShards, useRawShardIDs),
+		MutableStateStore:     NewMutableStateStore(client, logger, numHistoryShards, useRawShardIDs),
+		MutableStateTaskStore: NewMutableStateTaskStore(client, logger, numHistoryShards, useRawShardIDs),
 	}
 }
 

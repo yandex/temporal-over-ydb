@@ -9,24 +9,15 @@ import (
 	p "go.temporal.io/server/common/persistence"
 	"go.temporal.io/server/common/persistence/serialization"
 	"go.temporal.io/server/common/primitives"
-	"go.temporal.io/server/service/history/tasks"
 
 	baseerrors "github.com/yandex/temporal-over-ydb/persistence/pkg/base/errors"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/base/executor"
 )
 
-type (
-	BaseMutableStateStore struct {
-		cache executor.EventsCache
-	}
-)
+type BaseMutableStateStore struct{}
 
-func NewBaseMutableStateStore(
-	cache executor.EventsCache,
-) *BaseMutableStateStore {
-	return &BaseMutableStateStore{
-		cache: cache,
-	}
+func NewBaseMutableStateStore() *BaseMutableStateStore {
+	return &BaseMutableStateStore{}
 }
 
 func (d *BaseMutableStateStore) CreateWorkflowExecution(
@@ -43,14 +34,6 @@ func (d *BaseMutableStateStore) CreateWorkflowExecutionWithinTransaction(
 	request *p.InternalCreateWorkflowExecutionRequest,
 	transaction executor.Transaction,
 ) (resp *p.InternalCreateWorkflowExecutionResponse, err error) {
-	defer func() {
-		// TODO narrow this condition: we should invalidate only if we actually lost shard ownership
-		if err != nil {
-			_ = d.cache.Invalidate(ctx, request.ShardID)
-		}
-	}()
-
-	shardID := request.ShardID
 	newWorkflow := request.NewWorkflowSnapshot
 	lastWriteVersion := newWorkflow.LastWriteVersion
 	namespaceID := primitives.MustParseUUID(newWorkflow.NamespaceID)
@@ -108,8 +91,6 @@ func (d *BaseMutableStateStore) CreateWorkflowExecutionWithinTransaction(
 
 	if err = transaction.Execute(ctx); err != nil {
 		return nil, err
-	} else {
-		_ = d.cache.Put(ctx, shardID, newWorkflow.Tasks)
 	}
 	return &p.InternalCreateWorkflowExecutionResponse{}, nil
 }
@@ -128,13 +109,6 @@ func (d *BaseMutableStateStore) UpdateWorkflowExecutionWithinTransaction(
 	request *p.InternalUpdateWorkflowExecutionRequest,
 	transaction executor.Transaction,
 ) (err error) {
-	defer func() {
-		// TODO narrow this condition: we should invalidate only if we actually lost shard ownership
-		if err != nil {
-			_ = d.cache.Invalidate(ctx, request.ShardID)
-		}
-	}()
-
 	updateWorkflow := request.UpdateWorkflowMutation
 	newWorkflow := request.NewWorkflowSnapshot
 
@@ -151,7 +125,6 @@ func (d *BaseMutableStateStore) UpdateWorkflowExecutionWithinTransaction(
 		return err
 	}
 
-	shardID := request.ShardID
 	namespaceID := primitives.MustParseUUID(updateWorkflow.NamespaceID)
 
 	transaction.AssertShard(false, request.RangeID)
@@ -240,14 +213,6 @@ func (d *BaseMutableStateStore) UpdateWorkflowExecutionWithinTransaction(
 		transaction.DeleteBufferedEvents(namespaceID, updateWorkflow.WorkflowID, primitives.MustParseUUID(updateWorkflow.RunID))
 	}
 	err = transaction.Execute(ctx)
-	if err == nil {
-		taskMaps := []map[tasks.Category][]p.InternalHistoryTask{updateWorkflow.Tasks}
-		_ = d.cache.Put(ctx, shardID, updateWorkflow.Tasks)
-		if newWorkflow != nil {
-			taskMaps = append(taskMaps, newWorkflow.Tasks)
-		}
-		_ = d.cache.Put(ctx, shardID, taskMaps...)
-	}
 	return err
 }
 
@@ -265,13 +230,6 @@ func (d *BaseMutableStateStore) ConflictResolveWorkflowExecutionWithinTransactio
 	request *p.InternalConflictResolveWorkflowExecutionRequest,
 	transaction executor.Transaction,
 ) (err error) {
-	defer func() {
-		// TODO narrow this condition: we should invalidate only if we actually lost shard ownership
-		if err != nil {
-			_ = d.cache.Invalidate(ctx, request.ShardID)
-		}
-	}()
-
 	currentWorkflow := request.CurrentWorkflowMutation
 	resetWorkflow := request.ResetWorkflowSnapshot
 	newWorkflow := request.NewWorkflowSnapshot
@@ -280,7 +238,6 @@ func (d *BaseMutableStateStore) ConflictResolveWorkflowExecutionWithinTransactio
 		return err
 	}
 
-	shardID := request.ShardID
 	namespaceID := primitives.MustParseUUID(resetWorkflow.NamespaceID)
 	workflowID := resetWorkflow.WorkflowID
 
@@ -378,16 +335,6 @@ func (d *BaseMutableStateStore) ConflictResolveWorkflowExecutionWithinTransactio
 	}
 
 	err = transaction.Execute(ctx)
-	if err == nil {
-		taskMaps := []map[tasks.Category][]p.InternalHistoryTask{resetWorkflow.Tasks}
-		if newWorkflow != nil {
-			taskMaps = append(taskMaps, newWorkflow.Tasks)
-		}
-		if currentWorkflow != nil {
-			taskMaps = append(taskMaps, currentWorkflow.Tasks)
-		}
-		_ = d.cache.Put(ctx, shardID, taskMaps...)
-	}
 	return err
 }
 

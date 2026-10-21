@@ -18,7 +18,6 @@ import (
 
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/base/executor"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/base/tokens"
-	"github.com/yandex/temporal-over-ydb/persistence/pkg/cache"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/rows"
 )
@@ -30,16 +29,12 @@ type (
 		useRawShardIDs   bool
 		logger           log.Logger
 		tf               executor.TransactionFactory
-		cache            executor.EventsCache
-		taskCacheFactory cache.TaskCacheFactory
 	}
 )
 
 func NewMutableStateTaskStore(
 	client *conn.Client,
 	logger log.Logger,
-	cache executor.EventsCache,
-	taskCacheFactory cache.TaskCacheFactory,
 	numHistoryShards int32,
 	useRawShardIDs bool,
 ) *MutableStateTaskStore {
@@ -50,8 +45,6 @@ func NewMutableStateTaskStore(
 		useRawShardIDs:   useRawShardIDs,
 		logger:           logger,
 		tf:               tf,
-		cache:            cache,
-		taskCacheFactory: taskCacheFactory,
 	}
 }
 

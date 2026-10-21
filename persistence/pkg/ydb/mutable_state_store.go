@@ -37,7 +37,6 @@ type (
 func NewMutableStateStore(
 	client *conn.Client,
 	logger log.Logger,
-	cache executor.EventsCache,
 	numHistoryShards int32,
 	useRawShardIDs bool,
 ) *MutableStateStore {
@@ -47,7 +46,7 @@ func NewMutableStateStore(
 		numHistoryShards: numHistoryShards,
 		useRawShardIDs:   useRawShardIDs,
 		logger:           logger,
-		baseStore:        mss.NewBaseMutableStateStore(cache),
+		baseStore:        mss.NewBaseMutableStateStore(),
 		tf:               tf,
 	}
 }

@@ -23,11 +23,6 @@ type TransactionFactory interface {
 	NewTransaction(shardID int32) Transaction
 }
 
-type EventsCache interface {
-	Invalidate(ctx context.Context, shardID int32) error
-	Put(ctx context.Context, shardID int32, tasks ...map[tasks.Category][]p.InternalHistoryTask) error
-}
-
 type Transaction interface {
 	AssertShard(lockForUpdate bool, rangeIDEqualTo int64)
 	AssertCurrentWorkflow(

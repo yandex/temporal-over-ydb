@@ -15,7 +15,6 @@ import (
 	"go.temporal.io/server/common/persistence/client"
 	"go.temporal.io/server/common/resolver"
 
-	"github.com/yandex/temporal-over-ydb/persistence/pkg/cache"
 	ydbconfig "github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/config"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn"
 )
@@ -29,7 +28,6 @@ type (
 		logger           log.Logger
 		Client           *conn.Client
 		metricsHandler   metrics.Handler
-		taskCacheFactory cache.TaskCacheFactory
 		dc               *dynamicconfig.Collection
 		numHistoryShards int32
 
@@ -182,24 +180,12 @@ func OpenFactoryFromYDBConfig(
 	if err != nil {
 		return nil, err
 	}
-	taskCacheFactory := cache.NewNoopTaskCacheFactory()
-	// if v := os.Getenv("TEMPORAL_YDBPGX_CACHE_CAPACITY"); v != "" {
-	//	if cacheCapacity, err := strconv.Atoi(v); err == nil {
-	//		taskCacheFactory = cache.NewTaskCacheFactory(logger, metricsHandler, cacheCapacity)
-	//	} else {
-	//		logger.Warn("unable to parse TEMPORAL_YDBPGX_CACHE_CAPACITY", tag.Error(err))
-	//	}
-	// }
-	// if cfg.ShardQueueCache.Capacity > 0 {
-	//	taskCacheFactory = cache.NewTaskCacheFactory(logger, metricsHandler, cfg.ShardQueueCache.Capacity)
-	// }
 	return &Factory{
 		clusterName:      clusterName,
 		cfg:              ydbCfg,
 		logger:           logger,
 		Client:           ydbClient,
 		metricsHandler:   metricsHandler,
-		taskCacheFactory: taskCacheFactory,
 		dc:               dc,
 		numHistoryShards: options.numHistoryShards,
 	}, nil
@@ -248,7 +234,7 @@ func (f *Factory) NewMirroringClusterMetadataStore() (*MirroringClusterMetadataS
 
 // NewExecutionStore returns a new ExecutionStore.
 func (f *Factory) NewExecutionStore() (p.ExecutionStore, error) {
-	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.taskCacheFactory, f.numHistoryShards, f.cfg.UseRawShardIDs), nil
+	return NewExecutionStore(f.Client, f.logger, f.metricsHandler, f.numHistoryShards, f.cfg.UseRawShardIDs), nil
 }
 
 // NewQueue returns a new queue backed by YDB
