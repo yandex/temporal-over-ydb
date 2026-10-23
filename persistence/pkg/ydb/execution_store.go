@@ -22,8 +22,6 @@ type (
 	}
 )
 
-var _ p.ExecutionStore = (*ExecutionStore)(nil)
-
 func NewExecutionStore(
 	client *conn.Client,
 	logger log.Logger,
@@ -139,6 +137,21 @@ func (d *ExecutionStore) ConflictResolveWorkflowExecution(
 	return err
 }
 
+func (d *ExecutionStore) AppendHistoryNodesForCreateWorkflowExecutionRequest(ctx context.Context, request *p.InternalCreateWorkflowExecutionRequest) (int, int, error) {
+	nodes, trees, err := d.HistoryStore.AppendHistoryNodesForCreateWorkflowExecutionRequest(ctx, request)
+	return nodes, trees, conn.ConvertToTemporalError("CreateWorkflowExecution", err)
+}
+
+func (d *ExecutionStore) AppendHistoryNodesForUpdateWorkflowExecutionRequest(ctx context.Context, request *p.InternalUpdateWorkflowExecutionRequest) (int, int, error) {
+	nodes, trees, err := d.HistoryStore.AppendHistoryNodesForUpdateWorkflowExecutionRequest(ctx, request)
+	return nodes, trees, conn.ConvertToTemporalError("UpdateWorkflowExecution", err)
+}
+
+func (d *ExecutionStore) AppendHistoryNodesForConflictResolveWorkflowExecutionRequest(ctx context.Context, request *p.InternalConflictResolveWorkflowExecutionRequest) (int, int, error) {
+	nodes, trees, err := d.HistoryStore.AppendHistoryNodesForConflictResolveWorkflowExecutionRequest(ctx, request)
+	return nodes, trees, conn.ConvertToTemporalError("ConflictResolveWorkflowExecution", err)
+}
+
 func (d *ExecutionStore) GetName() string {
 	return ydbPersistenceName
 }
@@ -146,3 +159,5 @@ func (d *ExecutionStore) GetName() string {
 func (d *ExecutionStore) Close() {
 
 }
+
+var _ p.ExecutionStore = (*ExecutionStore)(nil)
