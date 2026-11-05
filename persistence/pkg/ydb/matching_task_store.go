@@ -290,7 +290,7 @@ WHERE namespace_id = $namespace_id
 AND task_queue_name = $task_queue_name;
 `)
 
-	err = d.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err = d.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		for taskQueueName, update := range request.Updates {
 			toAdd := make([]types.Value, 0, len(update.BuildIdsAdded))
 			for _, buildID := range update.BuildIdsAdded {

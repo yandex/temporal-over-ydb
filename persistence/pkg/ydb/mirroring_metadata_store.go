@@ -29,7 +29,7 @@ func (m *MirroringMetadataStore) UpsertNamespace(
 	ctx context.Context,
 	request *p.InternalUpdateNamespaceRequest,
 ) error {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 
 		template := m.client.AddQueryPrefix(m.client.NamspaceIDDecl() + `
@@ -61,7 +61,7 @@ VALUES ($namespace_id, $name, $detail, $detail_encoding, $is_global_namespace, $
 }
 
 func (m *MirroringMetadataStore) SetMetadata(ctx context.Context, notificationVersion int64) error {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 
 		template := m.client.AddQueryPrefix(`

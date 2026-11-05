@@ -30,8 +30,6 @@ type (
 		metricsHandler   metrics.Handler
 		dc               *dynamicconfig.Collection
 		numHistoryShards int32
-
-		clientOptions []ydb.Option
 	}
 )
 
@@ -51,21 +49,26 @@ func OptionsToYDBConfig(options map[string]any) (ydbconfig.Config, error) {
 	return cfg, nil
 }
 
-type ydbAbstractDataStoreFactory struct {
+type factoryOptions struct {
 	useRawShardIDs   bool
 	ydbClientOptions []ydb.Option
 	numHistoryShards int32
-	dc               *dynamicconfig.Collection
+	lazyClient       bool
 }
 
-// Option configures an ydbAbstractDataStoreFactory.
-type Option func(*ydbAbstractDataStoreFactory)
+// Option configures YDB data store factories.
+type Option func(*factoryOptions)
+
+// WithLazyClient opens the SDK driver on the first operation rather than during factory construction.
+func WithLazyClient() Option {
+	return func(o *factoryOptions) { o.lazyClient = true }
+}
 
 // WithYDBOptions appends extra ydb.Option values to be passed to the underlying
 // YDB client when sessions are constructed.
 func WithYDBOptions(opts ...ydb.Option) Option {
-	return func(f *ydbAbstractDataStoreFactory) {
-		f.ydbClientOptions = append(f.ydbClientOptions, opts...)
+	return func(o *factoryOptions) {
+		o.ydbClientOptions = append(o.ydbClientOptions, opts...)
 	}
 }
 
@@ -77,8 +80,8 @@ func WithNumHistoryShards(numHistoryShards int32) Option {
 	if numHistoryShards <= 0 {
 		panic("number of history shards must be positive")
 	}
-	return func(f *ydbAbstractDataStoreFactory) {
-		f.numHistoryShards = numHistoryShards
+	return func(o *factoryOptions) {
+		o.numHistoryShards = numHistoryShards
 	}
 }
 
@@ -87,21 +90,18 @@ func WithNumHistoryShards(numHistoryShards int32) Option {
 // or through the use_raw_shard_ids datastore option.
 // The encoding mode must remain unchanged for an existing database.
 func WithRawShardIDs(enabled bool) Option {
-	return func(f *ydbAbstractDataStoreFactory) {
-		f.useRawShardIDs = enabled
+	return func(o *factoryOptions) {
+		o.useRawShardIDs = enabled
 	}
+}
+
+type ydbAbstractDataStoreFactory struct {
+	opts []Option
+	dc   *dynamicconfig.Collection
 }
 
 func NewYDBAbstractDataStoreFactory(dc *dynamicconfig.Collection, opts ...Option) client.AbstractDataStoreFactory {
-	return newYDBAbstractDataStoreFactory(dc, opts...)
-}
-
-func newYDBAbstractDataStoreFactory(dc *dynamicconfig.Collection, opts ...Option) *ydbAbstractDataStoreFactory {
-	f := &ydbAbstractDataStoreFactory{dc: dc, numHistoryShards: 1024}
-	for _, opt := range opts {
-		opt(f)
-	}
-	return f
+	return &ydbAbstractDataStoreFactory{opts: opts, dc: dc}
 }
 
 func (f *ydbAbstractDataStoreFactory) NewFactory(
@@ -111,6 +111,8 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 	logger log.Logger,
 	metricsHandler metrics.Handler,
 ) p.DataStoreFactory {
+	// ydbClientOptions is nil here: any WithYDBOptions inside f.opts is merged
+	// into the client options by OpenFactoryFromYDBConfig.
 	return NewFactory(
 		cfg,
 		resolver.NewNoopResolver(),
@@ -118,9 +120,8 @@ func (f *ydbAbstractDataStoreFactory) NewFactory(
 		logger,
 		metricsHandler,
 		f.dc,
-		f.ydbClientOptions,
-		WithNumHistoryShards(f.numHistoryShards),
-		WithRawShardIDs(f.useRawShardIDs),
+		nil,
+		f.opts...,
 	)
 }
 
@@ -172,13 +173,22 @@ func OpenFactoryFromYDBConfig(
 	ydbClientOptions []ydb.Option,
 	opts ...Option,
 ) (*Factory, error) {
-	options := newYDBAbstractDataStoreFactory(dc, opts...)
+	options := &factoryOptions{numHistoryShards: 1024}
+	for _, opt := range opts {
+		opt(options)
+	}
 	ydbCfg.UseRawShardIDs = ydbCfg.UseRawShardIDs || options.useRawShardIDs
 	ydbClientOptions = append(ydbClientOptions, options.ydbClientOptions...)
 	ydbCfg.Endpoint = r.Resolve(ydbCfg.Endpoint)[0]
-	ydbClient, err := conn.NewClient(ctx, ydbCfg, logger, metricsHandler, ydbClientOptions...)
-	if err != nil {
-		return nil, err
+	var ydbClient *conn.Client
+	if options.lazyClient {
+		ydbClient = conn.NewLazyClient(ydbCfg, logger, metricsHandler, ydbClientOptions...)
+	} else {
+		var err error
+		ydbClient, err = conn.NewClient(ctx, ydbCfg, logger, metricsHandler, ydbClientOptions...)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &Factory{
 		clusterName:      clusterName,

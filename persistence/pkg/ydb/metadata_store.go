@@ -45,7 +45,7 @@ func NewMetadataStore(
 
 // CreateNamespace create a namespace
 func (m *MetadataStore) CreateNamespace(ctx context.Context, request *p.InternalCreateNamespaceRequest) (*p.CreateNamespaceResponse, error) {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 		notificationVersion, err := m.selectNotificationVersion(ctx, e)
 		if err != nil {
@@ -122,7 +122,7 @@ func (m *MetadataStore) UpdateNamespace(
 	ctx context.Context,
 	request *p.InternalUpdateNamespaceRequest,
 ) error {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 		notificationVersion, err := m.selectNotificationVersion(ctx, e)
 		if err != nil {
@@ -174,7 +174,7 @@ VALUES ($metadata_record_name, $notification_version + 1);
 }
 
 func (m *MetadataStore) RenameNamespace(ctx context.Context, request *p.InternalRenameNamespaceRequest) error {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 		notificationVersion, err := m.selectNotificationVersion(ctx, e)
 		if err != nil {
@@ -258,7 +258,7 @@ func (m *MetadataStore) GetNamespace(ctx context.Context, request *p.GetNamespac
 	}
 
 	var row *namespaceRow
-	err = m.client.DB.Table().Do(ctx, func(c context.Context, s table.Session) error {
+	err = m.client.DoSession(ctx, func(c context.Context, s table.Session) error {
 		e := conn.NewExecutorFromSession(s, conn.OnlineReadOnlyTxControl())
 
 		name := request.Name
@@ -369,7 +369,7 @@ func (m *MetadataStore) DeleteNamespace(ctx context.Context, request *p.DeleteNa
 	if _, err := primitives.ParseUUID(request.ID); err != nil {
 		return err
 	}
-	return m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	return m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 		name, err := m.selectNamespaceNameByID(ctx, e, request.ID)
 		if err != nil {
@@ -382,7 +382,7 @@ func (m *MetadataStore) DeleteNamespace(ctx context.Context, request *p.DeleteNa
 	})
 }
 func (m *MetadataStore) DeleteNamespaceByName(ctx context.Context, request *p.DeleteNamespaceByNameRequest) error {
-	err := m.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := m.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		e := conn.NewExecutorFromTransactionActor(tx)
 		id, err := m.selectNamespaceIDByName(ctx, e, request.Name)
 		if err != nil {
@@ -398,7 +398,7 @@ func (m *MetadataStore) DeleteNamespaceByName(ctx context.Context, request *p.De
 
 func (m *MetadataStore) GetMetadata(ctx context.Context) (resp *p.GetMetadataResponse, err error) {
 	var notificationVersion int64 = 0
-	err = m.client.DB.Table().Do(ctx, func(c context.Context, s table.Session) error {
+	err = m.client.DoSession(ctx, func(c context.Context, s table.Session) error {
 		e := conn.NewExecutorFromSession(s, conn.OnlineReadOnlyTxControl())
 		notificationVersion, err = m.selectNotificationVersion(c, e)
 		return err

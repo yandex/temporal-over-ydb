@@ -337,7 +337,7 @@ func (q *QueueStore) insertInitialQueueMetadataRecord(
 	queueType persistence.QueueType,
 	blob *commonpb.DataBlob,
 ) error {
-	err := q.client.DB.Table().DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
+	err := q.client.DoTx(ctx, func(ctx context.Context, tx table.TransactionActor) error {
 		template := q.client.AddQueryPrefix(`
 DECLARE $queue_type AS Int32;
 

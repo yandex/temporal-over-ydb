@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	ydbenv "github.com/ydb-platform/ydb-go-sdk-auth-environ"
@@ -17,6 +18,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/options"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
+	"go.temporal.io/api/serviceerror"
 	tlog "go.temporal.io/server/common/log"
 	"go.temporal.io/server/common/metrics"
 	"go.uber.org/atomic"
@@ -40,12 +42,19 @@ var (
 )
 
 type Client struct {
-	DB          *ydb.Driver
 	Database    string
 	Folder      string
 	logger      tlog.Logger
 	logQueries  atomic.Bool
 	useOldTypes bool
+
+	// driverLock is a hand-rolled mutex: acquire = send, release = receive.
+	// Unlike sync.Mutex, a goroutine waiting to acquire it can give up early.
+	driverLock chan struct{}
+	db         *ydb.Driver
+	ctx        context.Context
+	cancel     context.CancelFunc
+	openDriver func(context.Context) (*ydb.Driver, error)
 }
 
 func SnapshotReadOnlyTxControl(opts ...table.TxOnlineReadOnlyOption) *table.TransactionControl {
@@ -113,6 +122,82 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 	*Client,
 	error,
 ) {
+	client := NewLazyClient(cfg, logger, mh, opts...)
+	db, err := client.openDriver(ctx)
+	if err != nil {
+		client.cancel()
+		return nil, err
+	}
+	client.db = db
+	return client, nil
+}
+
+// NewLazyClient defers opening the SDK driver until the first operation.
+// Failed opens are retried by the next operation.
+func NewLazyClient(cfg config.Config, logger tlog.Logger, mh metrics.Handler, opts ...ydb.Option) *Client {
+	ctx, cancel := context.WithCancel(context.Background())
+	opts = slices.Clone(opts)
+	return &Client{
+		Database:    cfg.Database,
+		Folder:      cfg.Folder,
+		logger:      logger,
+		useOldTypes: cfg.UseOldTypes,
+		ctx:         ctx,
+		cancel:      cancel,
+		driverLock:  make(chan struct{}, 1),
+		openDriver: func(ctx context.Context) (*ydb.Driver, error) {
+			return openDriver(ctx, cfg, logger, mh, opts...)
+		},
+	}
+}
+
+// lockDriver acquires the driver lock. It gives up if ctx is canceled while
+// another goroutine is opening the driver, or if the client gets closed.
+func (client *Client) lockDriver(ctx context.Context) error {
+	select {
+	case client.driverLock <- struct{}{}: // acquired the lock
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-client.ctx.Done():
+		return serviceerror.NewUnavailable("ydb client is closed")
+	}
+}
+
+// unlockDriver releases the driver lock.
+func (client *Client) unlockDriver() {
+	<-client.driverLock
+}
+
+// Driver opens the SDK driver on demand. Prefer the operation methods unless
+// direct access to SDK services is needed.
+func (client *Client) Driver(ctx context.Context) (*ydb.Driver, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := client.lockDriver(ctx); err != nil {
+		return nil, err
+	}
+	defer client.unlockDriver()
+	if client.ctx.Err() != nil {
+		return nil, serviceerror.NewUnavailable("ydb client is closed")
+	}
+	if client.db != nil {
+		return client.db, nil
+	}
+	openCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	stop := context.AfterFunc(client.ctx, cancel)
+	defer stop()
+	db, err := client.openDriver(openCtx)
+	if err != nil {
+		return nil, err
+	}
+	client.db = db
+	return db, nil
+}
+
+func openDriver(ctx context.Context, cfg config.Config, logger tlog.Logger, mh metrics.Handler, opts ...ydb.Option) (*ydb.Driver, error) {
 	if cfg.Token != "" {
 		opts = append(opts, ydb.WithAccessTokenCredentials(cfg.Token))
 	} else if haveCredentialsInEnv() {
@@ -170,23 +255,27 @@ func NewClient(ctx context.Context, cfg config.Config, logger tlog.Logger, mh me
 	if err != nil {
 		return nil, xerrors.Errorf("connect error: %w", err)
 	}
-	return &Client{
-		DB:          db,
-		Database:    cfg.Database,
-		Folder:      cfg.Folder,
-		logger:      logger,
-		useOldTypes: cfg.UseOldTypes,
-	}, nil
+	return db, nil
 }
 
 func (client *Client) Close(ctx context.Context) error {
+	client.cancel()
+	// Plain send instead of lockDriver: cancel() above has already fired
+	// client.ctx.Done(), so lockDriver would refuse to acquire the lock.
+	client.driverLock <- struct{}{}
+	defer client.unlockDriver()
+	db := client.db
+	client.db = nil
+	if db == nil {
+		return nil
+	}
 	closeCtx, cancel := context.WithTimeout(ctx, time.Second*30)
 	defer cancel()
 	ts := time.Now()
 	defer func() {
 		client.logger.Info(fmt.Sprintf("ydb close duration: %s", time.Since(ts)))
 	}()
-	return client.DB.Close(closeCtx)
+	return db.Close(closeCtx)
 }
 
 func (client *Client) GetDefaultPrefix() string {
@@ -240,7 +329,11 @@ func (client *Client) Query(
 	sql string,
 	params *table.QueryParameters,
 ) (rs query.ClosableResultSet, err error) {
-	return client.DB.Query().QueryResultSet(ctx,
+	db, err := client.Driver(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return db.Query().QueryResultSet(ctx,
 		sql,
 		query.WithParameters(params),
 		query.WithTxControl(query.SnapshotReadOnlyTxControl()),
@@ -255,7 +348,7 @@ func (client *Client) Do(
 	params *table.QueryParameters,
 	opts ...table.Option,
 ) (res result.Result, err error) {
-	err = client.DB.Table().Do(
+	err = client.DoSession(
 		ctx,
 		func(c context.Context, s table.Session) (err error) {
 			_, res, err = s.Execute(c, tx, query, params)
@@ -276,7 +369,7 @@ func (client *Client) Do2(
 	getQueryParameters func() *table.QueryParameters,
 	opts ...table.Option,
 ) (res result.Result, err error) {
-	err = client.DB.Table().Do(
+	err = client.DoSession(
 		ctx,
 		func(c context.Context, s table.Session) (err error) {
 			_, res, err = s.Execute(c, tx, query, getQueryParameters())
@@ -295,7 +388,7 @@ func (client *Client) DoSchema(
 	query string,
 	params ...options.ExecuteSchemeQueryOption,
 ) (err error) {
-	err = client.DB.Table().Do(
+	err = client.DoSession(
 		ctx, func(ctx context.Context, s table.Session) (err error) {
 			err = s.ExecuteSchemeQuery(
 				ctx, query, params...,
@@ -308,4 +401,22 @@ func (client *Client) DoSchema(
 		return xerrors.Errorf("failed ydb request: %w", err)
 	}
 	return nil
+}
+
+// DoSession runs operation on a table session, opening the driver on first use.
+func (client *Client) DoSession(ctx context.Context, operation table.Operation, opts ...table.Option) error {
+	db, err := client.Driver(ctx)
+	if err != nil {
+		return err
+	}
+	return db.Table().Do(ctx, operation, opts...)
+}
+
+// DoTx runs operation in a transaction, opening the driver on first use.
+func (client *Client) DoTx(ctx context.Context, operation table.TxOperation, opts ...table.Option) error {
+	db, err := client.Driver(ctx)
+	if err != nil {
+		return err
+	}
+	return db.Table().DoTx(ctx, operation, opts...)
 }
