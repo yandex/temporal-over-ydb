@@ -15,7 +15,7 @@ require (
 	go.temporal.io/api v1.53.0
 	go.temporal.io/server v1.29.6
 	go.uber.org/atomic v1.11.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.23.0
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/grpc v1.83.2
