@@ -17,6 +17,7 @@ import (
 	"go.temporal.io/server/common/primitives"
 	"golang.org/x/sync/errgroup"
 
+	historystore "github.com/yandex/temporal-over-ydb/persistence/pkg/abcpgx/store"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/base/tokens"
 	"github.com/yandex/temporal-over-ydb/persistence/pkg/ydb/conn"
 )
@@ -307,7 +308,7 @@ func (h *HistoryStore) AppendHistoryNodesForCreateWorkflowExecutionRequest(
 			trees = append(trees, t)
 		}
 	}
-	err = h.upsertHistoryConcurrently(ctx, nodes, trees)
+	err = h.upsertHistoryBatch(ctx, nodes, trees)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -338,7 +339,7 @@ func (h *HistoryStore) AppendHistoryNodesForUpdateWorkflowExecutionRequest(
 			trees = append(trees, t)
 		}
 	}
-	err = h.upsertHistoryConcurrently(ctx, nodes, trees)
+	err = h.upsertHistoryBatch(ctx, nodes, trees)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -376,28 +377,41 @@ func (h *HistoryStore) AppendHistoryNodesForConflictResolveWorkflowExecutionRequ
 			trees = append(trees, t)
 		}
 	}
-	err = h.upsertHistoryConcurrently(ctx, nodes, trees)
+	err = h.upsertHistoryBatch(ctx, nodes, trees)
 	if err != nil {
 		return 0, 0, err
 	}
 	return len(nodes), len(trees), nil
 }
 
-func (h *HistoryStore) upsertHistoryConcurrently(ctx context.Context, nodes []types.Value, trees []types.Value) error {
+func (h *HistoryStore) upsertHistoryBatch(ctx context.Context, nodes []types.Value, trees []types.Value) error {
 	eg, ctx := errgroup.WithContext(ctx)
-	for _, treeRow := range trees {
-		eg.Go(func() error {
-			return h.Client.Write(ctx, h.upsertSingleHistoryTreeQuery, table.NewQueryParameters(
-				table.ValueParam("$tree_row_to_add", treeRow),
-			))
-		})
-	}
-	for _, nodeRow := range nodes {
-		eg.Go(func() error {
-			return h.Client.Write(ctx, h.upsertSingleHistoryNodeQuery, table.NewQueryParameters(
-				table.ValueParam("$node_row_to_add", nodeRow),
-			))
-		})
+	if historystore.PrefersThroughput(ctx) && len(nodes)+len(trees) > 5 {
+		if len(trees) > 0 {
+			eg.Go(func() error {
+				return h.Client.BulkUpsert(ctx, "history_tree", types.ListValue(trees...))
+			})
+		}
+		if len(nodes) > 0 {
+			eg.Go(func() error {
+				return h.Client.BulkUpsert(ctx, "history_node", types.ListValue(nodes...))
+			})
+		}
+	} else {
+		for _, treeRow := range trees {
+			eg.Go(func() error {
+				return h.Client.Write(ctx, h.upsertSingleHistoryTreeQuery, table.NewQueryParameters(
+					table.ValueParam("$tree_row_to_add", treeRow),
+				))
+			})
+		}
+		for _, nodeRow := range nodes {
+			eg.Go(func() error {
+				return h.Client.Write(ctx, h.upsertSingleHistoryNodeQuery, table.NewQueryParameters(
+					table.ValueParam("$node_row_to_add", nodeRow),
+				))
+			})
+		}
 	}
 	err := eg.Wait()
 	if err != nil && ydb.IsTimeoutError(err) {

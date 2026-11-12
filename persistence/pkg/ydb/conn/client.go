@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/ydb-platform/ydb-go-sdk/v3/table"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/options"
 	"github.com/ydb-platform/ydb-go-sdk/v3/table/result"
+	"github.com/ydb-platform/ydb-go-sdk/v3/table/types"
 	"github.com/ydb-platform/ydb-go-sdk/v3/trace"
 	"go.temporal.io/api/serviceerror"
 	tlog "go.temporal.io/server/common/log"
@@ -322,6 +324,17 @@ func (client *Client) Write2(
 		return errDo
 	}
 	return res.Close()
+}
+
+// BulkUpsert writes rows to a table in this client's folder. The SDK splits large
+// requests and retries idempotently; failures may leave a partially written batch.
+func (client *Client) BulkUpsert(ctx context.Context, tableName string, rows types.Value) error {
+	db, err := client.Driver(ctx)
+	if err != nil {
+		return err
+	}
+	return db.Table().BulkUpsert(ctx, path.Join(client.GetDefaultPrefix(), tableName),
+		table.BulkUpsertDataRows(rows), table.WithIdempotent())
 }
 
 func (client *Client) Query(
