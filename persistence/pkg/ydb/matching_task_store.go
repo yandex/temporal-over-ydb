@@ -627,8 +627,10 @@ ORDER BY namespace_id, task_queue_name, task_queue_type
 LIMIT $page_size;
 `)
 
-	// staleReadOnly can be answered by replicas without the leader.
-	// Should reduce database load. Consistency doesn't matter here
+	// Stale reads reduce load, but this is not a complete snapshot for recovery:
+	// a lagging replica can omit a recently created queue behind the next cursor.
+	// Stopping source writers alone does not guarantee a gap-free scan; recovery
+	// must account for replica lag before trusting the resulting queue inventory.
 	res, err := d.client.Do2(ctx, template, table.StaleReadOnlyTxControl(), func() *table.QueryParameters {
 		return table.NewQueryParameters(
 			table.ValueParam("$namespace_id_gt", cursorNamespaceID),
@@ -648,6 +650,9 @@ LIMIT $page_size;
 	}()
 	if err = res.NextResultSetErr(ctx); err != nil {
 		return nil, err
+	}
+	if res.CurrentResultSet().Truncated() {
+		return nil, fmt.Errorf("ListTaskQueue result truncated; retry with a smaller page size")
 	}
 
 	for res.NextRow() {
@@ -879,6 +884,9 @@ LIMIT $page_size;
 		return
 	}
 
+	if res.CurrentResultSet().Truncated() {
+		return nil, fmt.Errorf("GetTasks result truncated; retry with a smaller page size")
+	}
 	var lastTaskID int64
 	var tasks []*commonpb.DataBlob
 	for res.NextRow() {
